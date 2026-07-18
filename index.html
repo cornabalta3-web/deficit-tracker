@@ -11,9 +11,22 @@
     --bg: #14181C; --surface: #1C2227; --surfaceRaised: #242B31; --line: #333B42;
     --text: #F2EFE9; --textDim: #9AA3AA; --amber: #E8A33D; --sage: #6FA98A; --rust: #C1584B;
   }
+  [data-theme="light"] {
+    --bg: #F7F5F0; --surface: #FFFFFF; --surfaceRaised: #EFEBE2; --line: #DDD6C8;
+    --text: #23262B; --textDim: #6D7278; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
+  }
   * { box-sizing: border-box; }
   body, #root { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
-  #root { padding: 28px 20px 40px; min-height: 100vh; }
+  body { transition: background-color .25s ease, color .25s ease; }
+  .card, input, textarea, select, button { transition: background-color .25s ease, border-color .25s ease, color .25s ease; }
+  #root { padding: calc(28px + env(safe-area-inset-top, 0px)) 20px calc(130px + env(safe-area-inset-bottom, 0px)); min-height: 100vh; }
+  @keyframes popIn { 0% { transform: scale(.92); opacity: 0; } 60% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes floatUp { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-70px) scale(1.35); opacity: 0; } }
+  .celebrate { animation: popIn .45s ease-out; }
+  .confetti-piece { position: absolute; font-size: 20px; animation: floatUp 1.1s ease-out forwards; pointer-events: none; }
+  .fab-stack { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; z-index: 50; }
+  .fab-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--surfaceRaised); border: 1px solid var(--line); color: var(--text); font-size: 19px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+  .badge-pill { background: var(--surfaceRaised); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
   .wrap { max-width: 720px; margin: 0 auto; }
   input, textarea, select {
     font-family: inherit; background: var(--surfaceRaised); border: 1px solid var(--line);
@@ -71,8 +84,8 @@
   };
 
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v6-html · comidas separadas + gasto base sin actividad";
-  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false };
+  const APP_VERSION = "v7-html · tema claro/oscuro · barra horizontal · recompensas · cierre de día mejorado";
+  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark" };
 
   let meals = [];
   let dayMeta = {};
@@ -95,6 +108,7 @@
   let editingDayMeta = null;
   let editingWeighInId = null;
   let showCloseDayConfirm = false;
+  let justClosedCelebration = false;
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function todayISO() {
@@ -114,6 +128,87 @@ function todayISO() {
   function calcMaintenance({ weight, height, age, gender }) {
     const bmr = gender === "female" ? 10 * weight + 6.25 * height - 5 * age - 161 : 10 * weight + 6.25 * height - 5 * age + 5;
     return Math.round(bmr * 1.2);
+  }
+
+  // ---------- números con coma o punto (formato AR) ----------
+  function toNumber(v) {
+    if (v == null) return 0;
+    const n = parseFloat(String(v).trim().replace(",", "."));
+    return isNaN(n) ? 0 : n;
+  }
+
+  // ---------- tema claro/oscuro ----------
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", goal.theme === "light" ? "light" : "dark");
+  }
+  window.toggleTheme = function () {
+    goal = { ...goal, theme: goal.theme === "light" ? "dark" : "light" };
+    persistGoal();
+    applyTheme();
+    render();
+  };
+
+  // ---------- color según cercanía al objetivo (rojo -> amarillo -> verde) ----------
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function hexToRgb(hex) {
+    const h = hex.replace("#", "");
+    return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function lerpColor(c1, c2, t) { return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)]; }
+  function getProgressColor(pct) {
+    const rust = hexToRgb(cssVar("--rust")), amber = hexToRgb(cssVar("--amber")), sage = hexToRgb(cssVar("--sage"));
+    const c = pct <= 50 ? lerpColor(rust, amber, Math.max(0, pct) / 50) : lerpColor(amber, sage, Math.min(100, pct - 50) / 50);
+    return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+  }
+
+  // ---------- balance del día: verde y signo menos = déficit, amarillo/rojo y signo más = superávit ----------
+  function formatBalance(net) {
+    const threshold = goal.surplusAlertThreshold || 300;
+    if (net >= 0) return { text: "-" + Math.round(net).toLocaleString("es-ES") + " kcal", color: "var(--sage)" };
+    const surplus = Math.abs(net);
+    return { text: "+" + Math.round(surplus).toLocaleString("es-ES") + " kcal", color: surplus <= threshold ? "var(--amber)" : "var(--rust)" };
+  }
+  function dayCloseMessage(day) {
+    const net = day.net;
+    if (net >= 0) {
+      const kg = net / KCAL_PER_KG;
+      return `&#127881; ¡Felicitaciones, seguís así! Hoy restaste ${Math.round(net).toLocaleString("es-ES")} kcal (&asymp; ${kg.toFixed(2)} kg) de tu objetivo.`;
+    }
+    const surplus = Math.abs(net);
+    const threshold = goal.surplusAlertThreshold || 300;
+    if (surplus <= threshold) return `Hoy hubo un pequeño superávit de ${Math.round(surplus).toLocaleString("es-ES")} kcal. No pasa nada, mañana seguimos sumando déficit.`;
+    return `Hoy el balance dio +${Math.round(surplus).toLocaleString("es-ES")} kcal de superávit. Es solo un día — lo que importa es la tendencia general. Mañana retomamos.`;
+  }
+  function confettiMarkup() {
+    const emojis = ["&#127881;", "&#10024;", "&#128293;", "&#128170;", "&#11088;"];
+    let out = "";
+    for (let i = 0; i < 10; i++) {
+      const left = 5 + ((i * 9) % 90);
+      const delay = (i % 5) * 0.08;
+      out += `<span class="confetti-piece" style="left:${left}%;bottom:10px;animation-delay:${delay}s;">${emojis[i % emojis.length]}</span>`;
+    }
+    return out;
+  }
+
+  // ---------- racha de déficit e insignias ----------
+  function computeDeficitStreak(settledDescending) {
+    let streak = 0, prevDate = null;
+    for (const d of settledDescending) {
+      if (d.net < 0) break;
+      if (prevDate === null) { streak = 1; prevDate = d.date; continue; }
+      if (addDaysISO(prevDate, -1) === d.date) { streak++; prevDate = d.date; } else break;
+    }
+    return streak;
+  }
+  function computeBadges({ streak, kgLost, pct }) {
+    const badges = [];
+    const streakTiers = [[30, "&#127942;", "Racha de 30 días"], [14, "&#128293;&#128293;&#128293;", "Racha de 14 días"], [7, "&#128293;&#128293;", "Racha de 7 días"], [3, "&#128293;", "Racha de 3 días"]];
+    for (const [n, icon, label] of streakTiers) { if (streak >= n) { badges.push({ icon, label }); break; } }
+    const kgTiers = [[10, "&#128142;", "-10 kg quemados"], [5, "&#11088;", "-5 kg quemados"], [2, "&#10024;", "-2 kg quemados"]];
+    for (const [n, icon, label] of kgTiers) { if (kgLost >= n) { badges.push({ icon, label }); break; } }
+    if (pct >= 100) badges.push({ icon: "&#127919;", label: "¡Objetivo cumplido!" });
+    return badges;
   }
 
   function computeDayStats() {
@@ -160,6 +255,7 @@ function todayISO() {
       meals = []; dayMeta = {}; goal = { ...DEFAULT_GOAL }; weighIns = [];
     } finally {
       loading = false;
+      applyTheme();
       render();
     }
   }
@@ -181,10 +277,10 @@ function todayISO() {
   }
 
   window.completeOnboarding = function () {
-    const cw = parseFloat(document.getElementById("ob-cw").value) || 0;
-    const gw = parseFloat(document.getElementById("ob-gw").value) || 0;
-    const h = parseFloat(document.getElementById("ob-h").value) || 0;
-    const a = parseFloat(document.getElementById("ob-age").value) || 0;
+    const cw = toNumber(document.getElementById("ob-cw").value);
+    const gw = toNumber(document.getElementById("ob-gw").value);
+    const h = toNumber(document.getElementById("ob-h").value);
+    const a = toNumber(document.getElementById("ob-age").value);
     const gender = document.getElementById("ob-gender").value;
     const goalDate = document.getElementById("ob-date").value;
     if (!cw || !gw || !h || !a || !goalDate) return;
@@ -197,7 +293,7 @@ function todayISO() {
   // ---------- goal / settings ----------
   window.toggleSettings = function () { showSettings = !showSettings; render(); };
   window.updateGoalField = function (field, value, isNumber) {
-    goal = { ...goal, [field]: isNumber ? (parseFloat(value) || 0) : value };
+    goal = { ...goal, [field]: isNumber ? toNumber(value) : value };
     persistGoal();
   };
   window.recalcMaintenance = function () {
@@ -348,6 +444,7 @@ No inventes datos que no estén sugeridos por el contenido.`;
     dayMeta = { ...dayMeta, [date]: { ...existing, closed: true } };
     persistDayMeta();
     showCloseDayConfirm = false;
+    justClosedCelebration = true;
     render();
   };
   window.reopenDay = function (date) {
@@ -399,7 +496,7 @@ No inventes datos que no estén sugeridos por el contenido.`;
   // ---------- weigh-ins ----------
   window.addWeighIn = function () {
     const date = document.getElementById("weighin-date").value;
-    const w = parseFloat(document.getElementById("weighin-weight").value);
+    const w = toNumber(document.getElementById("weighin-weight").value);
     if (!w || w <= 0) return;
     const filtered = weighIns.filter((x) => x.date !== date);
     weighIns = [...filtered, { id: uid(), date, weight: w }].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -410,7 +507,7 @@ No inventes datos que no estén sugeridos por el contenido.`;
   window.startEditWeighIn = function (id) { editingWeighInId = id; render(); };
   window.cancelEditWeighIn = function () { editingWeighInId = null; render(); };
   window.saveEditWeighIn = function (id) {
-    const val = parseFloat(document.getElementById("edit-weighin-val-" + id).value);
+    const val = toNumber(document.getElementById("edit-weighin-val-" + id).value);
     if (!val || val <= 0) return;
     weighIns = weighIns.map((w) => (w.id === id ? { ...w, weight: val } : w));
     persistWeighIns();
@@ -460,8 +557,8 @@ No inventes datos que no estén sugeridos por el contenido.`;
         <div class="small dim" style="margin-bottom:24px;">Con estos datos calculo tu gasto calórico base personal, para que el déficit se ajuste a tu cuerpo desde el primer día.</div>
         <div class="card" style="margin-bottom:0;">
           <div class="grid2" style="margin-bottom:12px;">
-            <div><label class="label">Peso actual (kg)</label><input id="ob-cw" type="number" value="${esc(f.currentWeight)}"></div>
-            <div><label class="label">Peso objetivo (kg)</label><input id="ob-gw" type="number" value="${esc(f.goalWeight)}"></div>
+            <div><label class="label">Peso actual (kg)</label><input id="ob-cw" type="text" inputmode="decimal" value="${esc(f.currentWeight)}"></div>
+            <div><label class="label">Peso objetivo (kg)</label><input id="ob-gw" type="text" inputmode="decimal" value="${esc(f.goalWeight)}"></div>
           </div>
           <div class="grid2" style="margin-bottom:12px;">
             <div><label class="label">Altura (cm)</label><input id="ob-h" type="number" value="${esc(f.height)}"></div>
@@ -486,22 +583,32 @@ No inventes datos que no estén sugeridos por el contenido.`;
 
   function renderApp() {
     const dayStats = computeDayStats();
-    const todayStats = dayStats.find((d) => d.date === todayISO()) || null;
-    const todayClosed = !!(dayMeta[todayISO()] && dayMeta[todayISO()].closed);
+    const todayStr = todayISO();
+    const todayStats = dayStats.find((d) => d.date === todayStr) || null;
+    const todayClosed = !!(dayMeta[todayStr] && dayMeta[todayStr].closed);
+
+    // Hoy solo suma a la barra grande una vez que se cierra el día explícitamente.
+    // Los días pasados siguen contando igual que siempre (no se pierde historial).
+    const settledDayStats = dayStats.filter((d) => !(d.date === todayStr && !d.closed));
 
     const totalKgToLose = Math.max(0, goal.currentWeight - goal.goalWeight);
     const goalKcal = totalKgToLose * KCAL_PER_KG;
-    const totalDeficit = dayStats.reduce((s, d) => s + d.net, 0);
+    const totalDeficit = settledDayStats.reduce((s, d) => s + d.net, 0);
+    const totalDeficitDisplay = Math.max(0, totalDeficit);
     const clamped = Math.max(0, Math.min(totalDeficit, goalKcal || 1));
     const pct = goalKcal > 0 ? Math.min(100, Math.max(0, (totalDeficit / goalKcal) * 100)) : 0;
     const remaining = goalKcal - totalDeficit;
     const daysCount = dayStats.length;
+    const gaugeDaysCount = settledDayStats.length;
     const kgLost = totalDeficit / KCAL_PER_KG;
     const daysLeft = daysBetween(todayISO(), goal.goalDate);
     const neededDailyAvg = remaining > 0 ? remaining / daysLeft : 0;
     // El tanque arranca lleno (toda la grasa por bajar) y se vacía a medida que avanzás,
     // como un indicador de combustible que se agota — no una barra que se llena.
-    const fillHeight = 220 * (1 - clamped / (goalKcal || 1));
+    const fillWidthPct = Math.max(0, Math.min(100, (1 - clamped / (goalKcal || 1)) * 100));
+    const gaugeColor = getProgressColor(pct);
+    const streak = computeDeficitStreak(settledDayStats);
+    const badges = computeBadges({ streak, kgLost: Math.max(0, kgLost), pct });
 
     const avgProtein = daysCount ? dayStats.reduce((s, d) => s + d.protein, 0) / daysCount : 0;
     const avgCarbs = daysCount ? dayStats.reduce((s, d) => s + d.carbs, 0) / daysCount : 0;
@@ -545,30 +652,39 @@ No inventes datos que no estén sugeridos por el contenido.`;
 
     // HEADER
     html += `
-      <div class="row" style="align-items:flex-start;justify-content:space-between;margin-bottom:24px;">
-        <div>
-          <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">${goal.currentWeight} kg &rarr; ${goal.goalWeight} kg</div>
-          <div style="font-size:30px;font-weight:700;line-height:1.15;">${goalKcal.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
-          <div class="small dim" style="margin-top:2px;">Meta: ${new Date(goal.goalDate + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} · ${daysLeft} días restantes</div>
-          <div class="xs" style="color:var(--line);margin-top:6px;">${APP_VERSION}</div>
-        </div>
-        <button onclick="toggleSettings()" style="border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--textDim);">&#9881;</button>
+      <div style="margin-bottom:24px;">
+        <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">${goal.currentWeight} kg &rarr; ${goal.goalWeight} kg</div>
+        <div style="font-size:30px;font-weight:700;line-height:1.15;">${goalKcal.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
+        <div class="small dim" style="margin-top:2px;">Meta: ${new Date(goal.goalDate + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} · ${daysLeft} días restantes</div>
+        <div class="xs" style="color:var(--line);margin-top:6px;">${APP_VERSION}</div>
       </div>`;
 
     // SETTINGS
     if (showSettings) {
       html += `
         <div class="card">
+          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="title">Ajustes</div>
+            <button class="btn-secondary" onclick="toggleTheme()">${goal.theme === "light" ? "&#127769; Oscuro" : "&#9728;&#65039; Claro"}</button>
+          </div>
           <div class="title" style="margin-bottom:12px;">Ajustar objetivo</div>
           <div class="grid2" style="margin-bottom:12px;">
-            <div><label class="label">Peso actual (kg)</label><input type="number" value="${esc(goal.currentWeight)}" onchange="updateGoalField('currentWeight', this.value, true)"></div>
-            <div><label class="label">Peso objetivo (kg)</label><input type="number" value="${esc(goal.goalWeight)}" onchange="updateGoalField('goalWeight', this.value, true)"></div>
+            <div><label class="label">Peso actual (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.currentWeight)}" onchange="updateGoalField('currentWeight', this.value, true)"></div>
+            <div><label class="label">Peso objetivo (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.goalWeight)}" onchange="updateGoalField('goalWeight', this.value, true)"></div>
           </div>
           <div class="grid2">
             <div><label class="label">Fecha objetivo</label><input type="date" value="${esc(goal.goalDate)}" onchange="updateGoalField('goalDate', this.value, false)"></div>
             <div><label class="label">Gasto base diario (kcal)</label><input type="number" value="${esc(goal.maintenance)}" onchange="updateGoalField('maintenance', this.value, true)"></div>
           </div>
           <div class="xs dim" style="margin-top:10px;">El gasto base se usa solo los días en que no dictes un total de gasto de una app (Google Fit, reloj, etc).</div>
+
+          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Umbral de superávit</div>
+            <div class="grid2">
+              <div><label class="label">Amarillo → rojo a partir de (kcal)</label><input type="number" step="10" value="${esc(goal.surplusAlertThreshold ?? 300)}" onchange="updateGoalField('surplusAlertThreshold', this.value, true)"></div>
+            </div>
+            <div class="xs dim" style="margin-top:6px;">Un superávit por debajo de este número se muestra en amarillo; por encima, en rojo.</div>
+          </div>
 
           <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
             <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Datos personales (para recalcular el gasto base)</div>
@@ -617,31 +733,27 @@ No inventes datos que no estén sugeridos por el contenido.`;
 
     // GAUGE
     html += `
-      <div class="card row gap24">
-        <div class="col" style="align-items:center;flex-shrink:0;">
-          <div style="position:relative;width:46px;height:220px;background:var(--bg);border:1px solid var(--line);border-radius:23px;overflow:hidden;">
-            <div style="position:absolute;bottom:0;left:0;right:0;height:${fillHeight}px;background:linear-gradient(180deg, var(--amber) 0%, var(--rust) 100%);border-radius:0 0 23px 23px;"></div>
-          </div>
-          <div style="margin-top:10px;">&#128293;</div>
-        </div>
-        <div class="col" style="flex:1;justify-content:center;gap:12px;">
+      <div class="card">
+        <div class="row" style="align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
           <div>
-            <div class="small dim" style="margin-bottom:2px;">Acumulado</div>
-            <div style="font-size:28px;font-weight:700;color:${totalDeficit >= 0 ? "var(--text)" : "var(--rust)"};">${totalDeficit.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
-            <div class="small" style="color:var(--sage);margin-top:2px;">&asymp; ${kgLost.toFixed(1)} kg perdidos</div>
+            <div class="small dim" style="margin-bottom:2px;">&#128293; Calorías quemadas</div>
+            <div style="font-size:28px;font-weight:700;">${totalDeficitDisplay.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
+            <div class="small" style="color:var(--sage);margin-top:2px;">&asymp; ${Math.max(0, kgLost).toFixed(1)} kg perdidos</div>
           </div>
-          <div style="height:8px;background:var(--bg);border-radius:4px;overflow:hidden;">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg, var(--amber), var(--sage));"></div>
-          </div>
-          <div class="row small dim" style="justify-content:space-between;">
-            <span>${pct.toFixed(1)}% del objetivo</span>
-            <span>${remaining > 0 ? `Faltan ${remaining.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal` : "¡Objetivo cumplido!"}</span>
-          </div>
-          <div class="row gap20 small dim">
-            <span>${daysCount} día${daysCount !== 1 ? "s" : ""} registrado${daysCount !== 1 ? "s" : ""}</span>
-            <span>Necesitás: ${neededDailyAvg > 0 ? neededDailyAvg.toFixed(0) : 0} kcal/día</span>
+          <div style="text-align:right;">
+            <div class="small dim">${pct.toFixed(1)}% del objetivo</div>
+            <div class="xs dim" style="margin-top:2px;">${remaining > 0 ? `Faltan ${remaining.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal` : "¡Objetivo cumplido!"}</div>
+            ${streak > 0 ? `<div class="xs" style="color:var(--amber);margin-top:4px;">&#128293; Racha: ${streak} día${streak !== 1 ? "s" : ""}</div>` : ""}
           </div>
         </div>
+        <div style="position:relative;width:100%;height:32px;background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;bottom:0;width:${fillWidthPct}%;background:${gaugeColor};transition:width .4s ease, background .4s ease;"></div>
+        </div>
+        <div class="row gap20 small dim" style="margin-top:10px;flex-wrap:wrap;">
+          <span>${gaugeDaysCount} día${gaugeDaysCount !== 1 ? "s" : ""} cerrado${gaugeDaysCount !== 1 ? "s" : ""}</span>
+          <span>Necesitás: ${neededDailyAvg > 0 ? neededDailyAvg.toFixed(0) : 0} kcal/día</span>
+        </div>
+        ${badges.length ? `<div class="row gap8" style="flex-wrap:wrap;margin-top:12px;">${badges.map((b) => `<span class="badge-pill">${b.icon} ${esc(b.label)}</span>`).join("")}</div>` : ""}
       </div>`;
 
     // MACROS
@@ -660,7 +772,7 @@ No inventes datos que no estén sugeridos por el contenido.`;
         <div class="small dim" style="margin-bottom:12px;">Cargá tu peso real cada semana. Con al menos dos pesajes, la app compara tu bajada real contra el déficit calculado y sugiere ajustar el gasto base.</div>
         <div class="row gap10" style="margin-bottom:12px;">
           <input id="weighin-date" type="date" value="${todayISO()}" style="flex:1;">
-          <input id="weighin-weight" type="number" step="0.1" placeholder="Peso (kg)" style="flex:1;">
+          <input id="weighin-weight" type="text" inputmode="decimal" placeholder="Peso (kg)" style="flex:1;">
           <button class="btn-primary" style="flex-shrink:0;" onclick="addWeighIn()">Guardar</button>
         </div>`;
 
@@ -679,7 +791,7 @@ No inventes datos que no estén sugeridos por el contenido.`;
           html += `
             <div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:8px;padding:8px 12px;gap:8px;border:1px solid var(--amber);">
               <span class="small">${formatDate(w.date)}</span>
-              <input id="edit-weighin-val-${w.id}" type="number" step="0.1" value="${w.weight}" style="width:80px;padding:4px 8px;">
+              <input id="edit-weighin-val-${w.id}" type="text" inputmode="decimal" value="${w.weight}" style="width:80px;padding:4px 8px;">
               <button class="btn-ghost" style="background:var(--sage);color:#0E1A14;border-radius:6px;" onclick="saveEditWeighIn('${w.id}')">&#10003;</button>
               <button class="btn-ghost" onclick="cancelEditWeighIn()">&#10005;</button>
             </div>`;
@@ -704,15 +816,39 @@ No inventes datos que no estén sugeridos por el contenido.`;
       <div class="title" style="margin-bottom:6px;">&#127908; Contame qué comiste</div>`;
 
     if (todayClosed) {
+      const bal = todayStats ? formatBalance(todayStats.net) : null;
+      const msg = todayStats ? dayCloseMessage(todayStats) : "";
       html += `
-        <div style="background:var(--surfaceRaised);border:1px solid var(--sage);border-radius:10px;padding:16px;">
+        <div style="position:relative;overflow:hidden;background:var(--surfaceRaised);border:1px solid var(--sage);border-radius:10px;padding:16px;" class="${justClosedCelebration && todayStats && todayStats.net >= 0 ? "celebrate" : ""}">
+          ${justClosedCelebration && todayStats && todayStats.net >= 0 ? confettiMarkup() : ""}
           <div class="row gap8" style="align-items:center;margin-bottom:10px;"><span style="color:var(--sage);">&#10003;</span><span class="small" style="font-weight:700;">Ya cerraste el día de hoy</span></div>
-          ${todayStats ? `<div class="grid2" style="margin-bottom:12px;">${Stat("Consumido", todayStats.consumed.toFixed(0) + " kcal")}${Stat("Gasto", todayStats.gasto.toFixed(0) + " kcal")}${Stat("Balance", (todayStats.net >= 0 ? "+" : "") + todayStats.net.toFixed(0) + " kcal", todayStats.net >= 0 ? "var(--sage)" : "var(--rust)")}${Stat("Comidas", String(todayStats.meals.length))}</div>` : ""}
+          ${todayStats ? `
+            <div class="col gap6" style="margin-bottom:12px;">
+              ${todayStats.meals.map((m) => `<div class="row" style="justify-content:space-between;font-size:12px;"><span class="dim" style="font-style:italic;">${esc(m.note)}</span><span>${m.consumed.toFixed(0)} kcal</span></div>`).join("")}
+            </div>
+            <div class="grid2" style="margin-bottom:12px;">${Stat("Consumido", todayStats.consumed.toFixed(0) + " kcal")}${Stat("Gasto", todayStats.gasto.toFixed(0) + " kcal")}${Stat("Balance", bal.text, bal.color)}${Stat("Comidas", String(todayStats.meals.length))}</div>
+            <div class="small" style="margin-bottom:12px;">${msg}</div>
+          ` : ""}
           <button class="btn-secondary" onclick="reopenDay('${todayISO()}')">Reabrir el día para agregar algo más</button>
         </div>`;
+      justClosedCelebration = false;
     } else {
       html += `
-        <div class="small dim" style="margin-bottom:12px;">Podés cargar cada comida por separado (desayuno, almuerzo, cena, snacks) cuando quieras — se van sumando al mismo día. Si tenés el gasto total de una app, mencionalo en cualquiera de las comidas del día.</div>
+        <div class="small dim" style="margin-bottom:12px;">Podés cargar cada comida por separado (desayuno, almuerzo, cena, snacks) cuando quieras — se van sumando al mismo día. Si tenés el gasto total de una app, mencionalo en cualquiera de las comidas del día.</div>`;
+
+      if (todayStats && todayStats.meals.length) {
+        html += `<div class="col gap6" style="margin-bottom:14px;">`;
+        todayStats.meals.forEach((m) => {
+          html += `<div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:8px;padding:8px 10px;">
+            <span class="small dim" style="font-style:italic;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.note)}</span>
+            <span class="small" style="font-weight:700;margin-left:10px;white-space:nowrap;">${m.consumed.toFixed(0)} kcal</span>
+            <button class="btn-ghost" style="margin-left:6px;" onclick="removeMeal('${m.id}')">&#128465;</button>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      html += `
         <textarea id="dictation-textarea" rows="4" placeholder='Ej: para el almuerzo comí una milanesa con puré y una manzana de postre... (y si tenés: hoy Google Fit me dijo que gasté 2400 calorías)' style="resize:vertical;margin-bottom:12px;">${esc(window.__lastDictation && parsed ? window.__lastDictation : "")}</textarea>
         <input id="photo-file-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoFile(this)">`;
 
@@ -756,16 +892,19 @@ No inventes datos que no estén sugeridos por el contenido.`;
       }
 
       if (showCloseDayConfirm && todayStats) {
+        const bal = formatBalance(todayStats.net);
         html += `
           <div style="background:var(--surfaceRaised);border:1px solid var(--amber);border-radius:10px;padding:16px;margin-top:12px;">
             <div style="font-weight:700;margin-bottom:10px;">Resumen final de hoy</div>
+            <div class="col gap6" style="margin-bottom:12px;">
+              ${todayStats.meals.map((m) => `<div class="row" style="justify-content:space-between;font-size:12px;"><span class="dim" style="font-style:italic;">${esc(m.note)}</span><span>${m.consumed.toFixed(0)} kcal</span></div>`).join("")}
+            </div>
             <div class="grid2" style="margin-bottom:12px;">
               ${Stat("Consumido", todayStats.consumed.toFixed(0) + " kcal")}
               ${Stat("Gasto", todayStats.gasto.toFixed(0) + " kcal" + (todayStats.usedAppTotal ? " (app)" : ""))}
-              ${Stat("Balance", (todayStats.net >= 0 ? "+" : "") + todayStats.net.toFixed(0) + " kcal", todayStats.net >= 0 ? "var(--sage)" : "var(--rust)")}
+              ${Stat("Balance", bal.text, bal.color)}
               ${Stat("Comidas", String(todayStats.meals.length))}
             </div>
-            <div class="xs dim" style="margin-bottom:12px;">Comidas cargadas: ${esc(todayStats.meals.map((m) => m.note).join(" · "))}</div>
             <div class="row gap10">
               <button class="btn-sage" style="flex:1;" onclick="closeToday()">Confirmar y cerrar el día</button>
               <button class="btn-secondary" onclick="cancelCloseDayConfirm()">Seguir agregando</button>
@@ -789,13 +928,14 @@ No inventes datos que no estén sugeridos por el contenido.`;
         html += `<div class="small dim" style="padding:12px 0;">Todavía no registraste ninguna comida. Contá arriba para arrancar.</div>`;
       }
       dayStats.forEach((day) => {
+        const bal = formatBalance(day.net);
         html += `<div style="background:var(--surfaceRaised);border-radius:10px;overflow:hidden;">
           <div class="row" style="align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;" onclick="toggleDayExpand('${day.date}')">
             <div style="flex:1;min-width:0;">
               <div class="small" style="font-weight:700;">${formatDate(day.date)} <span class="dim" style="font-weight:400;">· ${day.meals.length} comida${day.meals.length !== 1 ? "s" : ""}</span>${day.closed ? ` <span style="color:var(--sage);font-weight:700;font-size:11px;">&#10003; cerrado</span>` : ""}</div>
               <div class="xs dim">Consumido ${day.consumed.toFixed(0)} kcal · Gasto ${day.gasto.toFixed(0)} kcal${day.usedAppTotal ? " (app)" : ""} · P${day.protein.toFixed(0)}/C${day.carbs.toFixed(0)}/G${day.fat.toFixed(0)}</div>
             </div>
-            <div class="row" style="align-items:center;gap:4px;font-weight:700;font-size:15px;color:${day.net >= 0 ? "var(--sage)" : "var(--rust)"};flex-shrink:0;margin-right:8px;">${day.net >= 0 ? "+" : ""}${day.net.toFixed(0)}</div>
+            <div class="row" style="align-items:center;gap:4px;font-weight:700;font-size:15px;color:${bal.color};flex-shrink:0;margin-right:8px;">${bal.text}</div>
             <span>${expandedDays[day.date] ? "&#9650;" : "&#9660;"}</span>
           </div>`;
 
@@ -860,6 +1000,12 @@ No inventes datos que no estén sugeridos por el contenido.`;
       html += `</div>`;
     }
     html += `</div></div>`;
+
+    html += `
+      <div class="fab-stack">
+        <button class="fab-btn" onclick="toggleTheme()" aria-label="Cambiar tema">${goal.theme === "light" ? "&#127769;" : "&#9728;&#65039;"}</button>
+        <button class="fab-btn" onclick="toggleSettings()" aria-label="Configuración">&#9881;&#65039;</button>
+      </div>`;
 
     document.getElementById("root").innerHTML = html;
   }
