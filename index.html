@@ -125,7 +125,7 @@
   };
 
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v13-html · rediseño: navegación inferior, hoja de carga y pantalla de progreso";
+  const APP_VERSION = "v13.1-html · validación de origen por mismo host";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -590,8 +590,9 @@ function todayISO() {
       sin_contenido: "Escribí qué comiste o adjuntá una foto.",
       rechazado: "No pude analizar esa descripción. Probá contarlo con otras palabras.",
       sin_conexion: "No hay conexión con el servidor. Revisá tu internet y reintentá.",
-      token_invalido: "Esta copia de la app no está autorizada a usar el análisis.",
-      origen_no_permitido: "Esta copia de la app no está autorizada a usar el análisis.",
+      // Dos causas distintas: antes compartían mensaje y no se podía saber cuál era.
+      token_invalido: "Falta el token de la app. Si activaste APP_SHARED_TOKEN en Netlify, borrá esa variable: el frontend todavía no lo manda.",
+      origen_no_permitido: "El servidor rechazó la dirección desde la que abriste la app. Fijate desde qué URL estás entrando.",
     };
     if (e && e.codigo && porCodigo[e.codigo]) return porCodigo[e.codigo];
     // TypeError es lo que tira fetch cuando directamente no hay red.

@@ -93,13 +93,35 @@ function error(statusCode, code, mensaje) {
 // Solo aceptamos pedidos que vengan de nuestro propio sitio. No frena a alguien
 // decidido (curl no manda Origin), pero corta el abuso casual; el cierre real
 // es APP_SHARED_TOKEN, más abajo.
-function origenPermitido(origin) {
-  if (!origin) return true; // same-origin de algunos navegadores / PWA
-  const permitidos = [process.env.URL, process.env.DEPLOY_URL, process.env.DEPLOY_PRIME_URL]
-    .filter(Boolean)
-    .concat((process.env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean));
-  if (permitidos.length === 0) return true; // entorno local sin configurar
-  return permitidos.some((p) => origin === p.replace(/\/$/, ""));
+// La regla es "mismo origen": el pedido tiene que venir de la misma dirección
+// donde está publicada la app. Comparamos el Origin del navegador contra el
+// Host al que llegó el pedido, que es un dato del pedido mismo.
+//
+// La versión anterior comparaba contra las variables URL / DEPLOY_URL /
+// DEPLOY_PRIME_URL de Netlify, y eso rebotaba pedidos legítimos: cada deploy
+// preview, deploy de rama y dominio propio tiene una dirección distinta, así
+// que bastaba con abrir la app desde cualquiera de ellas para quedar afuera.
+// Comparar contra el Host funciona en todas por igual y no depende de que
+// Netlify exponga esas variables dentro de la función.
+function origenPermitido(event) {
+  const origin = event.headers.origin || event.headers.Origin;
+  if (!origin) return true; // pedidos same-origin que no mandan Origin
+
+  const host = event.headers.host || event.headers.Host;
+  let originHost;
+  try {
+    originHost = new URL(origin).host;
+  } catch (e) {
+    return false; // Origin malformado
+  }
+  if (host && originHost === host) return true;
+
+  // Escotilla por si algún día servís el frontend desde otro dominio.
+  const extra = (process.env.ALLOWED_ORIGINS || "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  return extra.some((p) => {
+    try { return new URL(p).host === originHost; } catch (e) { return false; }
+  });
 }
 
 exports.handler = async function (event) {
@@ -107,7 +129,7 @@ exports.handler = async function (event) {
     return error(405, "method_not_allowed", "Método no permitido.");
   }
 
-  if (!origenPermitido(event.headers.origin || event.headers.Origin)) {
+  if (!origenPermitido(event)) {
     return error(403, "origen_no_permitido", "Origen no autorizado.");
   }
 
