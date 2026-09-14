@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Déficit">
+<meta name="theme-color" content="#14181C">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <title>Déficit Tracker</title>
 <style>
   :root {
@@ -86,7 +91,7 @@
   };
 
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v11-html · límites de seguridad en la calibración (nunca sugiere valores imposibles)";
+  const APP_VERSION = "v12-html · endpoint cerrado, modelo Sonnet 5, respuesta garantizada y fotos más livianas";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -392,14 +397,55 @@ function todayISO() {
   };
 
   // ---------- photo ----------
+  // Una foto de iPhone sin tocar son ~2.450 tokens de entrada; redimensionada a
+  // 1024px son ~1.050. Para estimar un plato no se pierde nada útil, y es el
+  // ahorro más grande del costo por análisis. Además, al re-codificar en canvas
+  // la salida siempre queda en JPEG: eso normaliza de paso los HEIC del iPhone,
+  // que la API no acepta.
+  const PHOTO_MAX_SIDE = 1024;
+  const PHOTO_JPEG_QUALITY = 0.85;
+
+  function redimensionarFoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("No se pudo abrir la imagen"));
+        img.onload = () => {
+          const escala = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.width, img.height));
+          const w = Math.round(img.width * escala);
+          const h = Math.round(img.height * escala);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          // Fondo blanco: si el original tiene transparencia, el JPEG la
+          // rellenaría de negro y confundiría la estimación.
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve({ dataUrl: canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY), mediaType: "image/jpeg" });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   window.triggerPhoto = function () { document.getElementById("photo-file-input").click(); };
-  window.handlePhotoFile = function (input) {
+  window.handlePhotoFile = async function (input) {
     const file = input.files && input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => { photo = { dataUrl: reader.result, mediaType: file.type }; render(); };
-    reader.readAsDataURL(file);
     input.value = "";
+    if (!file) return;
+    try {
+      photo = await redimensionarFoto(file);
+      errorMsg = "";
+    } catch (e) {
+      console.error(e);
+      photo = null;
+      errorMsg = "No pude abrir esa imagen. Probá con otra foto.";
+    }
+    render();
   };
   window.removePhoto = function () { photo = null; render(); };
 
@@ -410,47 +456,28 @@ function todayISO() {
     analyzing = true; errorMsg = ""; parsed = null;
     render();
     try {
-      const systemPrompt = `Sos un nutricionista que extrae datos estructurados sobre UNA comida o UN relato de actividad de un día. Podés recibir un relato dictado en español, una foto de comida, o ambos. Devolvé SOLO un objeto JSON, sin markdown, sin backticks, sin texto adicional, con esta forma exacta:
-{
-  "consumed_kcal": number,
-  "protein_g": number,
-  "carbs_g": number,
-  "fat_g": number,
-  "total_expenditure_kcal": number|null,
-  "exercise_kcal": number|null,
-  "summary": string,
-  "nutrition_score": number,
-  "nutrition_comment": string
-}
-Reglas:
-- IMPORTANTE — corregí el sesgo típico de subestimación: al estimar por foto o descripción, las personas y los modelos de IA tienden a quedarse cortos porque no cuentan bien el aceite de cocción, manteca, aderezos, salsas y azúcares ocultos, y porque subestiman el tamaño real de las porciones caseras o de restaurante. Para compensar esto:
-  - Si el plato tiene claramente algo frito, salteado, con aceite, manteca, mayonesa, aderezo o salsa visible, SUMÁ explícitamente esas calorías aunque no se detallen.
-  - Estimá el tamaño de las porciones con criterio realista de porción de restaurante/casa (no la porción "ideal" o mínima de un plan nutricional).
-  - Ante la duda entre dos estimaciones razonables, elegí la más alta, no la más conservadora.
-- Esto puede ser SOLO UNA COMIDA — no asumas que es todo lo que la persona comió en el día.
-- Si la persona da directamente un número total de calorías consumidas en esta comida o en el día, usá ESE número tal cual, y en ese caso protein_g/carbs_g/fat_g quedan en 0.
-- Si hay una foto, identificá los alimentos visibles y estimá porciones realistas.
-- total_expenditure_kcal: SOLO si se menciona explícitamente un gasto calórico TOTAL del día reportado por una app. Si no, poné null.
-- exercise_kcal: si se menciona ejercicio específico realizado, estimá las kcal quemadas SOLO por esa actividad puntual. Si no, poné null.
-- summary: un resumen de una frase en español de esta comida/actividad puntual.
-- nutrition_score: de 1 a 10, valorando la calidad nutricional de ESTA comida puntual (no del día completo). Considerá la densidad de proteína en relación a las calorías totales, el balance entre proteína/carbos/grasa, si son alimentos enteros o muy procesados/fritos, y la presencia de vegetales o fibra si se mencionan. 10 = muy completa y nutritiva, 1 = muy pobre (ej: solo azúcar o frituras sin proteína ni fibra).
-- nutrition_comment: un comentario breve en español (máximo 8 palabras) sobre el punto más relevante, por ejemplo "Falta proteína", "Gran fuente de grasas saludables", "Buen balance de macros", "Alta en sodio y frituras". Basate en lo que sí podés inferir de los alimentos mencionados.
-No inventes datos que no estén sugeridos por el contenido.`;
-
-      const contentBlocks = [];
-      if (photo) contentBlocks.push({ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.dataUrl.split(",")[1] } });
-      contentBlocks.push({ type: "text", text: dictation.trim() || "Analizá la foto adjunta." });
+      // El prompt del sistema ya no viaja desde acá: vive en la función
+      // serverless. Mandarlo desde el cliente dejaba el endpoint abierto para
+      // que cualquiera lo usara como API de Claude gratis, facturada a nuestra
+      // cuenta. Ahora solo aportamos el dictado y la foto.
+      const payload = { dictation: dictation.trim() };
+      if (photo) payload.photo = { mediaType: photo.mediaType, data: photo.dataUrl.split(",")[1] };
 
       const response = await fetch("/.netlify/functions/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system: systemPrompt, content: contentBlocks }),
+        body: JSON.stringify(payload),
       });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
-      const textBlocks = (data.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
-      const clean = textBlocks.replace(/```json|```/g, "").trim();
-      const obj = JSON.parse(clean);
+
+      // La función devuelve el análisis ya parseado y garantizado contra un
+      // esquema (structured outputs), así que desapareció el viejo baile de
+      // sacarle los backticks de markdown al texto y rezar que JSON.parse ande.
+      const obj = await response.json();
+      if (!response.ok) {
+        const err = new Error(obj.error || "Error desconocido");
+        err.codigo = obj.code;
+        throw err;
+      }
       parsed = {
         consumed: Number(obj.consumed_kcal) || 0,
         protein: Number(obj.protein_g) || 0,
@@ -465,12 +492,36 @@ No inventes datos que no estén sugeridos por el contenido.`;
       window.__lastDictation = dictation;
     } catch (e) {
       console.error(e);
-      errorMsg = "No pude analizar esto. Probá de nuevo, con un poco más de detalle o una foto más clara.";
+      // Antes todos los fallos mostraban el mismo mensaje, así que un problema
+      // de red, una clave vencida y una foto ilegible eran indistinguibles y no
+      // había forma de saber si reintentar servía de algo.
+      errorMsg = mensajeDeError(e);
     } finally {
       analyzing = false;
       render();
     }
   };
+
+  function mensajeDeError(e) {
+    const porCodigo = {
+      sin_clave: "La app no tiene configurada la clave de API. Revisá las variables de entorno en Netlify.",
+      clave_rechazada: "La clave de API fue rechazada. Puede haber vencido o haber sido revocada.",
+      sin_credito: "La cuenta de Anthropic se quedó sin crédito. Cargá saldo y volvé a intentar.",
+      limite_alcanzado: "Demasiados análisis seguidos. Esperá un minuto y probá de nuevo.",
+      formato_no_soportado: "Ese formato de imagen no se puede analizar. Sacá la foto de nuevo.",
+      foto_muy_grande: "La foto es demasiado pesada. Probá con una más chica.",
+      dictado_muy_largo: "El dictado es muy largo. Contá solo esta comida.",
+      sin_contenido: "Escribí qué comiste o adjuntá una foto.",
+      rechazado: "No pude analizar esa descripción. Probá contarlo con otras palabras.",
+      sin_conexion: "No hay conexión con el servidor. Revisá tu internet y reintentá.",
+      token_invalido: "Esta copia de la app no está autorizada a usar el análisis.",
+      origen_no_permitido: "Esta copia de la app no está autorizada a usar el análisis.",
+    };
+    if (e && e.codigo && porCodigo[e.codigo]) return porCodigo[e.codigo];
+    // TypeError es lo que tira fetch cuando directamente no hay red.
+    if (e instanceof TypeError) return "No hay conexión. Revisá tu internet y reintentá.";
+    return "No pude analizar esto. Probá de nuevo, con un poco más de detalle o una foto más clara.";
+  }
 
   window.confirmSave = function () {
     if (!parsed) return;
