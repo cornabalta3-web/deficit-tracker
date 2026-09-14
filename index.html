@@ -65,6 +65,40 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+  /* ---------- navegación inferior y hoja de carga (v13) ---------- */
+  .screen { max-width: 720px; margin: 0 auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 44px; margin-bottom: 10px; }
+  .icon-btn { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-right: -10px; }
+  .hero-num { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+  .track { height: 6px; background: var(--surfaceRaised); border-radius: 999px; overflow: hidden; }
+  .track > i { display: block; height: 100%; border-radius: 999px; transition: width .35s ease; }
+  .chip { background: var(--surfaceRaised); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .chip.dim { color: var(--textDim); }
+  .sq { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: 0px; }
+  .dash { width: 14px; height: 2px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: 3px; }
+  .meal-row { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; }
+  .big-btn { height: 52px; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+    height: calc(84px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 1px solid var(--line);
+    display: grid; grid-template-columns: repeat(5, 1fr); align-items: start; padding-top: 10px;
+  }
+  .nav > button { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 48px; justify-content: center; font-size: 10px; color: var(--textDim); }
+  .nav > button.on { color: var(--amber); }
+  .nav .cap { width: 56px; height: 56px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; margin-top: -18px; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+
+  .sheet-backdrop { position: fixed; inset: 0; background: rgba(10,13,16,.62); z-index: 70; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 71;
+    background: var(--surface); border-top: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+    max-height: 88vh; overflow-y: auto;
+  }
+  .grab { width: 38px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 18px; }
 </style>
 </head>
 <body>
@@ -91,7 +125,7 @@
   };
 
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v12-html · endpoint cerrado, modelo Sonnet 5, respuesta garantizada y fotos más livianas";
+  const APP_VERSION = "v13-html · rediseño: navegación inferior, hoja de carga y pantalla de progreso";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -101,6 +135,13 @@
   let loading = true;
 
   // UI-only state
+  let activeTab = "hoy";          // hoy | historial | progreso | ajustes
+  let showCapture = false;        // hoja inferior para cargar una comida
+  // El textarea se destruye en cada render (reconstruimos innerHTML entero), así
+  // que guardamos lo tipeado acá antes de redibujar. Sin esto, adjuntar una foto
+  // borraba el dictado a medio escribir.
+  let dictationDraft = "";
+  let calibrationDismissed = null; // gasto base sugerido que ya postergaste
   let expanded = true;
   let expandedDays = {};
   let showSettings = false;
@@ -316,8 +357,39 @@ function todayISO() {
     render();
   };
 
+  // ---------- navegación ----------
+  window.setTab = function (tab) {
+    activeTab = tab;
+    showCapture = false;
+    window.scrollTo(0, 0);
+    render();
+  };
+  window.openCapture = function () {
+    showCapture = true;
+    errorMsg = "";
+    render();
+    // Foco diferido: el textarea recién existe después de redibujar.
+    setTimeout(function () {
+      const t = document.getElementById("dictation-textarea");
+      if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+    }, 50);
+  };
+  window.closeCapture = function () {
+    saveDictationDraft();
+    showCapture = false;
+    render();
+  };
+  window.focusDictation = function () {
+    const t = document.getElementById("dictation-textarea");
+    if (t) t.focus();
+  };
+  window.dismissCalibration = function (sugerido) {
+    calibrationDismissed = sugerido;
+    render();
+  };
+
   // ---------- goal / settings ----------
-  window.toggleSettings = function () { showSettings = !showSettings; render(); };
+  window.toggleSettings = function () { setTab("ajustes"); };
   window.updateGoalField = function (field, value, isNumber) {
     goal = { ...goal, [field]: isNumber ? toNumber(value) : value };
     persistGoal();
@@ -451,8 +523,13 @@ function todayISO() {
 
   // ---------- analyze ----------
   window.analyze = async function () {
-    const dictation = (document.getElementById("dictation-textarea") || {}).value || "";
-    if (!dictation.trim() && !photo) return;
+    saveDictationDraft();
+    const dictation = dictationDraft;
+    if (!dictation.trim() && !photo) {
+      errorMsg = "Escribí qué comiste o adjuntá una foto.";
+      render();
+      return;
+    }
     analyzing = true; errorMsg = ""; parsed = null;
     render();
     try {
@@ -489,7 +566,6 @@ function todayISO() {
         nutritionScore: obj.nutrition_score != null ? Math.max(1, Math.min(10, Math.round(Number(obj.nutrition_score)))) : null,
         nutritionComment: obj.nutrition_comment || "",
       };
-      window.__lastDictation = dictation;
     } catch (e) {
       console.error(e);
       // Antes todos los fallos mostraban el mismo mensaje, así que un problema
@@ -540,6 +616,9 @@ function todayISO() {
     dayMeta = { ...dayMeta, [date]: nextMeta };
     persistDayMeta();
     parsed = null; photo = null;
+    dictationDraft = "";
+    showCapture = false;
+    activeTab = "hoy";
     expandedDays = { ...expandedDays, [date]: true };
     render();
   };
@@ -692,54 +771,147 @@ function todayISO() {
       </div>`;
   }
 
-  function renderApp() {
+  // ---------- iconos ----------
+  // SVG en vez de emoji: escalan, se recolorean con el tema y no dependen de
+  // qué fuente de emoji tenga el sistema.
+  const ICONS = {
+    home: '<path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.8V21h14V9.8"></path>',
+    list: '<path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3.5 6h.01"></path><path d="M3.5 12h.01"></path><path d="M3.5 18h.01"></path>',
+    chart: '<path d="M3 17.5 9 11l4 4 7.5-8"></path><path d="M21 3h-4"></path><path d="M21 3v4"></path>',
+    gear: '<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="m4.9 4.9 2.1 2.1"></path><path d="m17 17 2.1 2.1"></path><path d="M2 12h3"></path><path d="M19 12h3"></path><path d="m4.9 19.1 2.1-2.1"></path><path d="m17 7 2.1-2.1"></path>',
+    plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
+    flame: '<path d="M12 22c4.1 0 7-2.7 7-6.5 0-4.5-4-6.6-4.6-10.5-1.6 1.4-2 3.2-2 4.6 0 1.1-.9 1.6-1.6 1-.9-.8-1.3-2-1.3-3.1C7.3 9.4 5 12 5 15.5 5 19.3 7.9 22 12 22z"></path>',
+    sun: '<circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.9 4.9 1.4 1.4"></path><path d="m17.7 17.7 1.4 1.4"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m4.9 19.1 1.4-1.4"></path><path d="m17.7 6.3 1.4-1.4"></path>',
+    moon: '<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path>',
+    close: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
+    mic: '<rect x="9" y="2.5" width="6" height="11.5" rx="3"></rect><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path><path d="M12 18v3.5"></path>',
+    camera: '<path d="M3 8.5h3.2l1.6-2.4h8.4l1.6 2.4H21v11H3z"></path><circle cx="12" cy="14" r="3.4"></circle>',
+    pencil: '<path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path>',
+    trash: '<path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6 7l1 13h10l1-13"></path>',
+    check: '<path d="M4 12.5 9.5 18 20 6.5"></path>',
+    tune: '<path d="M12 3v3"></path><path d="M12 18v3"></path><circle cx="12" cy="12" r="3.4"></circle><path d="M4.5 12H3"></path><path d="M21 12h-1.5"></path>',
+  };
+  function icon(name, color, size, sw) {
+    return `<svg width="${size || 21}" height="${size || 21}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
+  }
+
+  // Diferencia real en días: daysBetween() tiene piso de 1 porque se usa para
+  // dividir, y acá necesitamos que dos fechas iguales den 0 para ubicar puntos.
+  function dayDiff(a, b) { return Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000); }
+
+  function ringSVG(pct, color, arriba, abajo) {
+    const r = 30, circ = 2 * Math.PI * r;
+    const on = Math.max(0, Math.min(1, pct / 100)) * circ;
+    return `<svg width="76" height="76" viewBox="0 0 76 76" style="flex-shrink:0;">
+      <circle cx="38" cy="38" r="${r}" fill="none" stroke="var(--surfaceRaised)" stroke-width="9"></circle>
+      <circle cx="38" cy="38" r="${r}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${on.toFixed(1)} ${(circ - on).toFixed(1)}" transform="rotate(-90 38 38)"></circle>
+      <text x="38" y="36" text-anchor="middle" fill="var(--text)" font-size="16" font-weight="700" font-family="-apple-system, Helvetica Neue, Arial, sans-serif">${arriba}</text>
+      <text x="38" y="49" text-anchor="middle" fill="var(--textDim)" font-size="9" font-family="-apple-system, Helvetica Neue, Arial, sans-serif">${abajo}</text>
+    </svg>`;
+  }
+
+  function navMarkup() {
+    const item = (tab, ic, label) =>
+      `<button class="${activeTab === tab ? "on" : ""}" onclick="setTab('${tab}')">${icon(ic, activeTab === tab ? "var(--amber)" : "var(--textDim)")}<span>${label}</span></button>`;
+    return `<div class="nav">
+      ${item("hoy", "home", "Hoy")}
+      ${item("historial", "list", "Historial")}
+      <div style="display:flex;justify-content:center;">
+        <button class="cap" onclick="openCapture()" aria-label="Cargar comida">${icon("plus", "#1A1300", 26, 2.2)}</button>
+      </div>
+      ${item("progreso", "chart", "Progreso")}
+      ${item("ajustes", "gear", "Ajustes")}
+    </div>`;
+  }
+
+  // ---------- gráfico de peso: real contra plan ----------
+  function weightChartSVG() {
+    const ws = weighIns.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
+    if (ws.length < 2) {
+      return `<div class="small dim" style="padding:18px 0;">Cargá al menos dos pesajes para ver la curva y comparar tu bajada real contra el plan.</div>`;
+    }
+    const W = 300, H = 132;
+    const inicio = ws[0], fin = ws[ws.length - 1];
+    const span = Math.max(1, dayDiff(inicio.date, fin.date));
+
+    // El plan se ancla en tu primer pesaje y baja en línea recta hasta el peso
+    // objetivo en la fecha objetivo. Así no depende de goal.currentWeight, que
+    // vas editando, y la comparación se mantiene estable.
+    const planDias = goal.goalDate && dayDiff(inicio.date, goal.goalDate) > 0 ? dayDiff(inicio.date, goal.goalDate) : null;
+    const planEn = (iso) => {
+      if (!planDias) return null;
+      const t = Math.min(1, Math.max(0, dayDiff(inicio.date, iso) / planDias));
+      return inicio.weight + (goal.goalWeight - inicio.weight) * t;
+    };
+    const planFin = planEn(fin.date);
+
+    const valores = ws.map((w) => w.weight).concat(planFin != null ? [planFin] : []);
+    let min = Math.min.apply(null, valores), max = Math.max.apply(null, valores);
+    const pad = Math.max(0.4, (max - min) * 0.2);
+    min -= pad; max += pad;
+    const rango = max - min || 1;
+    const X = (iso) => (dayDiff(inicio.date, iso) / span) * W;
+    const Y = (v) => H - ((v - min) / rango) * H;
+
+    const puntos = ws.map((w) => `${X(w.date).toFixed(1)},${Y(w.weight).toFixed(1)}`).join(" ");
+    const circulos = ws.map((w, i) =>
+      i === ws.length - 1
+        ? `<circle cx="${X(w.date).toFixed(1)}" cy="${Y(w.weight).toFixed(1)}" r="5" fill="var(--amber)"></circle>`
+        : `<circle cx="${X(w.date).toFixed(1)}" cy="${Y(w.weight).toFixed(1)}" r="3.5" fill="var(--surface)" stroke="var(--amber)" stroke-width="2"></circle>`
+    ).join("");
+
+    const lineaPlan = planFin != null
+      ? `<line x1="0" y1="${Y(inicio.weight).toFixed(1)}" x2="${W}" y2="${Y(planFin).toFixed(1)}" stroke="var(--textDim)" stroke-width="2" stroke-dasharray="5 5" stroke-linecap="round" opacity=".55"></line>`
+      : "";
+
+    return `<svg width="100%" viewBox="0 0 ${W} ${H + 24}" style="display:block;overflow:visible;">
+      <line x1="0" y1="4" x2="${W}" y2="4" stroke="var(--surfaceRaised)" stroke-width="1"></line>
+      <line x1="0" y1="${(H / 2).toFixed(0)}" x2="${W}" y2="${(H / 2).toFixed(0)}" stroke="var(--surfaceRaised)" stroke-width="1"></line>
+      <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--surfaceRaised)" stroke-width="1"></line>
+      ${lineaPlan}
+      <polyline points="${puntos}" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      ${circulos}
+      <text x="0" y="${H + 18}" fill="var(--textDim)" font-size="10" font-family="-apple-system, Helvetica Neue, Arial, sans-serif">${formatDate(inicio.date)}</text>
+      <text x="${W}" y="${H + 18}" text-anchor="end" fill="var(--textDim)" font-size="10" font-family="-apple-system, Helvetica Neue, Arial, sans-serif">${formatDate(fin.date)}</text>
+    </svg>`;
+  }
+
+  // ---------- datos compartidos por todas las pantallas ----------
+  function computeCtx() {
     const dayStats = computeDayStats();
     const todayStr = todayISO();
     const todayStats = dayStats.find((d) => d.date === todayStr) || null;
     const todayClosed = !!(dayMeta[todayStr] && dayMeta[todayStr].closed);
-
-    // Hoy solo suma a la barra grande una vez que se cierra el día explícitamente.
-    // Los días pasados siguen contando igual que siempre (no se pierde historial).
-    const settledDayStats = dayStats.filter((d) => !(d.date === todayStr && !d.closed));
+    const settled = dayStats.filter((d) => !(d.date === todayStr && !d.closed));
 
     const totalKgToLose = Math.max(0, goal.currentWeight - goal.goalWeight);
     const goalKcal = totalKgToLose * KCAL_PER_KG;
-    const totalDeficit = settledDayStats.reduce((s, d) => s + d.net, 0);
-    const totalDeficitDisplay = Math.max(0, totalDeficit);
-    const clamped = Math.max(0, Math.min(totalDeficit, goalKcal || 1));
+    const totalDeficit = settled.reduce((s, d) => s + d.net, 0);
     const pct = goalKcal > 0 ? Math.min(100, Math.max(0, (totalDeficit / goalKcal) * 100)) : 0;
     const remaining = goalKcal - totalDeficit;
     const daysCount = dayStats.length;
-    const gaugeDaysCount = settledDayStats.length;
     const kgLost = totalDeficit / KCAL_PER_KG;
     const daysLeft = daysBetween(todayISO(), goal.goalDate);
     const neededDailyAvg = remaining > 0 ? remaining / daysLeft : 0;
-    // El tanque arranca lleno (toda la grasa por bajar) y se vacía a medida que avanzás,
-    // como un indicador de combustible que se agota — no una barra que se llena.
-    const fillWidthPct = Math.max(0, Math.min(100, (1 - clamped / (goalKcal || 1)) * 100));
-    const gaugeColor = getProgressColor(pct);
-    const streak = computeDeficitStreak(settledDayStats);
+    const streak = computeDeficitStreak(settled);
     const badges = computeBadges({ streak, kgLost: Math.max(0, kgLost), pct });
 
+    const avgConsumed = daysCount ? dayStats.reduce((s, d) => s + d.consumed, 0) / daysCount : 0;
     const avgProtein = daysCount ? dayStats.reduce((s, d) => s + d.protein, 0) / daysCount : 0;
     const avgCarbs = daysCount ? dayStats.reduce((s, d) => s + d.carbs, 0) / daysCount : 0;
     const avgFat = daysCount ? dayStats.reduce((s, d) => s + d.fat, 0) / daysCount : 0;
-    const avgConsumed = daysCount ? dayStats.reduce((s, d) => s + d.consumed, 0) / daysCount : 0;
     const avgGasto = daysCount ? dayStats.reduce((s, d) => s + d.gasto, 0) / daysCount : goal.maintenance;
     const avgNet = daysCount ? totalDeficit / daysCount : 0;
+
     const proteinTarget = goal.proteinTarget || calcProteinTarget(goal.currentWeight);
     const todayProtein = todayStats ? todayStats.protein : 0;
-    const proteinRemaining = Math.max(0, proteinTarget - todayProtein);
 
     const wSorted = weighIns.slice().sort((a, b) => (a.date < b.date ? -1 : 1));
     let calibration = null;
-    // Ventana reciente (21 días) en vez de comparar contra el primer pesaje de siempre:
-    // si se compara desde el origen, cada ajuste aplicado recalcula el historial "hacia atrás"
-    // y vuelve a mostrar desajuste sin parar nunca (bucle infinito).
     const CALIBRATION_WINDOW_DAYS = 21;
-    const recentWeighIns = wSorted.filter((w) => daysBetween(w.date, todayISO()) <= CALIBRATION_WINDOW_DAYS);
-    if (recentWeighIns.length >= 2) {
-      const first = recentWeighIns[0], last = recentWeighIns[recentWeighIns.length - 1];
+    const recientes = wSorted.filter((w) => daysBetween(w.date, todayISO()) <= CALIBRATION_WINDOW_DAYS);
+    if (recientes.length >= 2) {
+      const first = recientes[0], last = recientes[recientes.length - 1];
       const days = daysBetween(first.date, last.date);
       if (days >= 5) {
         const actualKgLost = first.weight - last.weight;
@@ -747,431 +919,553 @@ function todayISO() {
         const trackedKcalDeficit = dayStats.filter((d) => d.date >= first.date && d.date <= last.date).reduce((s, d) => s + d.net, 0);
         const discrepancyPerDay = (actualKcalDeficit - trackedKcalDeficit) / days;
         if (Math.abs(discrepancyPerDay) > 80) {
-          // Nunca corregir de una sola vez todo el desajuste observado (con pocos días de datos
-          // puede haber ruido: agua retenida, un día mal cargado, etc.) — se aplica como máximo
-          // un paso de 400 kcal/día por sugerencia, y nunca se baja de un piso fisiológico razonable.
           const MAX_ADJUSTMENT_PER_STEP = 400;
           const MIN_MAINTENANCE = 1200;
-          const cappedAdjustment = Math.max(-MAX_ADJUSTMENT_PER_STEP, Math.min(MAX_ADJUSTMENT_PER_STEP, discrepancyPerDay));
-          const suggestedMaintenance = Math.max(MIN_MAINTENANCE, Math.round(goal.maintenance + cappedAdjustment));
-          calibration = { discrepancyPerDay, cappedAdjustment, suggestedMaintenance, days, actualKgLost };
+          const capped = Math.max(-MAX_ADJUSTMENT_PER_STEP, Math.min(MAX_ADJUSTMENT_PER_STEP, discrepancyPerDay));
+          const suggested = Math.max(MIN_MAINTENANCE, Math.round(goal.maintenance + capped));
+          // Si ya postergaste exactamente esta sugerencia, no insistimos. Vuelve
+          // a aparecer sola cuando un pesaje nuevo cambie el número.
+          if (suggested !== calibrationDismissed) {
+            calibration = { discrepancyPerDay, cappedAdjustment: capped, suggestedMaintenance: suggested, days, actualKgLost };
+          }
         }
       }
     }
 
     let missingDates = [];
     if (dayStats.length > 0) {
-      const sortedDates = dayStats.map((d) => d.date).sort();
-      const lastDate = sortedDates[sortedDates.length - 1];
+      const sorted = dayStats.map((d) => d.date).sort();
+      const lastDate = sorted[sorted.length - 1];
       const yesterday = addDaysISO(todayISO(), -1);
       if (lastDate < yesterday) {
-        const existingSet = new Set(sortedDates);
+        const existing = new Set(sorted);
         let cursor = addDaysISO(lastDate, 1), guard = 0;
         while (cursor <= yesterday && guard < 120) {
-          if (!existingSet.has(cursor)) missingDates.push(cursor);
+          if (!existing.has(cursor)) missingDates.push(cursor);
           cursor = addDaysISO(cursor, 1); guard++;
         }
       }
     }
-    const showGapBanner = missingDates.length > 0 && !gapChoiceMade;
-    const avgForFill = { consumed: avgConsumed, protein: avgProtein, carbs: avgCarbs, fat: avgFat, gasto: avgGasto, net: avgNet };
 
-    let html = `<div class="wrap">`;
+    return {
+      dayStats, todayStr, todayStats, todayClosed, settled, goalKcal, totalDeficit, pct,
+      remaining, daysCount, kgLost, daysLeft, neededDailyAvg, streak, badges,
+      avgConsumed, avgProtein, avgCarbs, avgFat, avgGasto, avgNet,
+      proteinTarget, todayProtein, wSorted, calibration, missingDates,
+      showGapBanner: missingDates.length > 0 && !gapChoiceMade,
+      avgForFill: { consumed: avgConsumed, protein: avgProtein, carbs: avgCarbs, fat: avgFat, gasto: avgGasto, net: avgNet },
+    };
+  }
 
-    // HEADER
-    html += `
-      <div style="margin-bottom:24px;">
-        <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">${goal.currentWeight} kg &rarr; ${goal.goalWeight} kg</div>
-        <div style="font-size:30px;font-weight:700;line-height:1.15;">${goalKcal.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
-        <div class="small dim" style="margin-top:2px;">Meta: ${new Date(goal.goalDate + "T00:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })} · ${daysLeft} días restantes</div>
-        <div class="xs" style="color:var(--line);margin-top:6px;">${APP_VERSION}</div>
+  // ---------- PANTALLA: HOY ----------
+  function screenHoy(c) {
+    const kgMostrados = Math.max(0, c.kgLost);
+    const totalKg = Math.max(0, goal.currentWeight - goal.goalWeight);
+    let h = `<div class="screen">`;
+
+    h += `<div class="topbar">
+      <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">Déficit</div>
+      <button class="icon-btn" onclick="toggleTheme()" aria-label="Cambiar tema">${icon(goal.theme === "light" ? "moon" : "sun", "var(--textDim)", 21)}</button>
+    </div>`;
+
+    // El titular es en kilos, no en kilocalorías: 77.000 kcal no se siente, 2,4 kg sí.
+    h += `<div style="display:flex;align-items:baseline;gap:8px;">
+      <div class="hero-num">${kgMostrados.toFixed(1).replace(".", ",")}</div>
+      <div style="font-size:20px;font-weight:700;color:var(--textDim);">kg menos</div>
+    </div>
+    <div class="small dim" style="margin-top:6px;">de ${totalKg.toFixed(0)} kg · faltan ${c.daysLeft} día${c.daysLeft !== 1 ? "s" : ""}</div>`;
+
+    h += `<div class="track" style="margin-top:14px;"><i style="width:${c.pct.toFixed(1)}%;background:var(--amber);"></i></div>`;
+
+    // El restante en kcal no se pierde al cambiar el titular: queda acá.
+    h += `<div class="row" style="justify-content:space-between;align-items:baseline;margin-top:9px;">
+      <div class="small dim">${c.remaining > 0 ? `Faltan <span style="color:var(--text);font-weight:700;">${Math.round(c.remaining).toLocaleString("es-ES")}</span> kcal` : `<span style="color:var(--sage);font-weight:700;">¡Objetivo cumplido!</span>`}</div>
+      <div class="small dim">${c.pct.toFixed(0)}%</div>
+    </div>`;
+
+    h += `<div class="row gap8" style="margin-top:14px;flex-wrap:wrap;">`;
+    if (c.streak > 0) h += `<span class="chip">${icon("flame", "var(--amber)", 13)} ${c.streak} día${c.streak !== 1 ? "s" : ""} seguido${c.streak !== 1 ? "s" : ""}</span>`;
+    if (c.neededDailyAvg > 0) h += `<span class="chip dim">Necesitás -${c.neededDailyAvg.toFixed(0)}/día</span>`;
+    h += `</div>`;
+
+    if (c.badges.length) {
+      h += `<div class="row gap8" style="flex-wrap:wrap;margin-top:10px;">${c.badges.map((b) => `<span class="badge-pill">${b.icon} ${esc(b.label)}</span>`).join("")}</div>`;
+    }
+
+    if (c.showGapBanner) {
+      const missingJson = esc(JSON.stringify(c.missingDates)).replace(/"/g, "&quot;");
+      const avgJson = esc(JSON.stringify(c.avgForFill)).replace(/"/g, "&quot;");
+      h += `<div class="card" style="border-color:var(--amber);margin-top:20px;">
+        <div class="title" style="margin-bottom:6px;">Te faltan ${c.missingDates.length} día${c.missingDates.length !== 1 ? "s" : ""} sin registrar</div>
+        <div class="small dim" style="margin-bottom:14px;">Del ${formatDate(c.missingDates[0])} al ${formatDate(c.missingDates[c.missingDates.length - 1])}. ¿Qué hacemos con esos días para no perder la cuenta?</div>
+        <div class="row gap10" style="flex-wrap:wrap;">
+          <button class="btn-primary" onclick='fillGapDays("neutral", "${missingJson}", "${avgJson}")'>Completar como neutros</button>
+          <button class="btn-secondary" ${c.daysCount === 0 ? "disabled" : ""} onclick='fillGapDays("average", "${missingJson}", "${avgJson}")'>Usar mi promedio</button>
+          <button class="btn-secondary" onclick="ignoreGapDays()">Ignorar</button>
+        </div>
       </div>`;
+    }
 
-    // SETTINGS
-    if (showSettings) {
-      html += `
-        <div class="card">
-          <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div class="title">Ajustes</div>
-            <button class="btn-secondary" onclick="toggleTheme()">${goal.theme === "light" ? "&#127769; Oscuro" : "&#9728;&#65039; Claro"}</button>
-          </div>
-          <div class="title" style="margin-bottom:12px;">Ajustar objetivo</div>
-          <div class="grid2" style="margin-bottom:12px;">
-            <div><label class="label">Peso actual (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.currentWeight)}" onchange="updateGoalField('currentWeight', this.value, true)"></div>
-            <div><label class="label">Peso objetivo (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.goalWeight)}" onchange="updateGoalField('goalWeight', this.value, true)"></div>
-          </div>
-          <div class="grid2">
-            <div><label class="label">Fecha objetivo</label><input type="date" value="${esc(goal.goalDate)}" onchange="updateGoalField('goalDate', this.value, false)"></div>
-            <div><label class="label">Gasto base diario (kcal)</label><input type="number" value="${esc(goal.maintenance)}" onchange="updateGoalField('maintenance', this.value, true)"></div>
-          </div>
-          <div class="xs dim" style="margin-top:10px;">El gasto base se usa solo los días en que no dictes un total de gasto de una app (Google Fit, reloj, etc).</div>
+    // Tarjeta del día
+    const consumidoHoy = c.todayStats ? c.todayStats.consumed : 0;
+    const gastoHoy = c.todayStats ? c.todayStats.gasto : goal.maintenance;
+    const netoHoy = c.todayStats ? c.todayStats.net : 0;
+    const pctDia = gastoHoy > 0 ? (consumidoHoy / gastoHoy) * 100 : 0;
+    const bal = formatBalance(netoHoy);
+    const pctProt = c.proteinTarget > 0 ? Math.min(100, (c.todayProtein / c.proteinTarget) * 100) : 0;
 
-          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Umbral de superávit</div>
-            <div class="grid2">
-              <div><label class="label">Amarillo → rojo a partir de (kcal)</label><input type="number" step="10" value="${esc(goal.surplusAlertThreshold ?? 300)}" onchange="updateGoalField('surplusAlertThreshold', this.value, true)"></div>
-            </div>
-            <div class="xs dim" style="margin-top:6px;">Un superávit por debajo de este número se muestra en amarillo; por encima, en rojo.</div>
-          </div>
+    h += `<div class="card" style="margin-top:20px;">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="min-width:0;">
+          <div class="stat-label" style="margin-bottom:4px;">${netoHoy >= 0 ? "Déficit de hoy" : "Superávit de hoy"}</div>
+          <div style="font-size:34px;font-weight:700;line-height:1;color:${bal.color};">${bal.text.replace(" kcal", "")}</div>
+          <div class="small dim" style="margin-top:4px;">${Math.round(consumidoHoy).toLocaleString("es-ES")} comidas · ${Math.round(gastoHoy).toLocaleString("es-ES")} gastadas${c.todayStats && c.todayStats.usedAppTotal ? " (app)" : ""}</div>
+        </div>
+        ${ringSVG(pctDia, netoHoy >= 0 ? "var(--sage)" : "var(--rust)", pctDia.toFixed(0) + "%", "del gasto")}
+      </div>
 
-          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Datos personales (para recalcular el gasto base)</div>
-            <div class="grid2" style="margin-bottom:12px;">
-              <div><label class="label">Altura (cm)</label><input type="number" value="${esc(goal.height || "")}" onchange="updateGoalField('height', this.value, true)"></div>
-              <div><label class="label">Edad</label><input type="number" value="${esc(goal.age || "")}" onchange="updateGoalField('age', this.value, true)"></div>
-            </div>
-            <div style="margin-bottom:12px;"><label class="label">Sexo</label>
-              <select onchange="updateGoalField('gender', this.value, false)">
-                <option value="male" ${goal.gender === "male" ? "selected" : ""}>Masculino</option>
-                <option value="female" ${goal.gender === "female" ? "selected" : ""}>Femenino</option>
-              </select>
-            </div>
-            <div class="xs dim" style="margin-bottom:10px;">Este cálculo es siempre tu base sin ejercicio. El ejercicio se suma aparte, día a día, cuando lo dictás.</div>
-            <button class="btn-secondary" onclick="recalcMaintenance()">Recalcular gasto base con estos datos</button>
-          </div>
+      <div style="height:1px;background:var(--line);margin:16px 0;"></div>
 
-          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Objetivo de proteína diaria</div>
+      <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+        <div class="small" style="font-weight:700;">Proteína</div>
+        <div class="small dim"><span style="color:var(--protein);font-weight:700;">${c.todayProtein.toFixed(0)}</span> de ${c.proteinTarget} g</div>
+      </div>
+      <div class="track"><i style="width:${pctProt.toFixed(0)}%;background:var(--protein);"></i></div>
+
+      <div class="row gap20" style="margin-top:14px;flex-wrap:wrap;">
+        <span class="small dim"><span class="sq" style="background:var(--carbs);"></span>${(c.todayStats ? c.todayStats.carbs : 0).toFixed(0)} g carbos</span>
+        <span class="small dim"><span class="sq" style="background:var(--fat);"></span>${(c.todayStats ? c.todayStats.fat : 0).toFixed(0)} g grasas</span>
+      </div>
+    </div>`;
+
+    // Día cerrado
+    if (c.todayClosed) {
+      const msg = c.todayStats ? dayCloseMessage(c.todayStats) : "";
+      h += `<div class="card ${justClosedCelebration && c.todayStats && c.todayStats.net >= 0 ? "celebrate" : ""}" style="position:relative;overflow:hidden;border-color:var(--sage);">
+        ${justClosedCelebration && c.todayStats && c.todayStats.net >= 0 ? confettiMarkup() : ""}
+        <div class="row gap8" style="align-items:center;margin-bottom:10px;">${icon("check", "var(--sage)", 17)}<span class="small" style="font-weight:700;">Ya cerraste el día de hoy</span></div>
+        <div class="small" style="margin-bottom:14px;">${msg}</div>
+        <button class="btn-secondary" onclick="reopenDay('${c.todayStr}')">Reabrir para agregar algo más</button>
+      </div>`;
+      justClosedCelebration = false;
+    }
+
+    // Comidas de hoy
+    const comidas = c.todayStats ? c.todayStats.meals : [];
+    h += `<div class="row" style="justify-content:space-between;align-items:baseline;margin:22px 0 10px;">
+      <div class="title">${comidas.length} comida${comidas.length !== 1 ? "s" : ""} hoy</div>
+      ${comidas.length && !c.todayClosed ? `<button style="font-size:12px;color:var(--amber);" onclick="openCloseDayConfirm()">Cerrar día</button>` : ""}
+    </div>`;
+
+    if (!comidas.length) {
+      h += `<div class="card" style="text-align:center;padding:28px 20px;">
+        <div class="small dim" style="margin-bottom:14px;">Todavía no cargaste nada hoy.</div>
+        <button class="btn-primary" onclick="openCapture()">Cargar la primera comida</button>
+      </div>`;
+    } else {
+      h += `<div class="col gap8">`;
+      comidas.forEach((m) => {
+        h += `<div class="meal-row">
+          ${m.score != null ? `<span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700;flex-shrink:0;">${m.score}</span>` : ""}
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.note)}</div>
+            ${m.comment ? `<div class="xs dim">${esc(m.comment)}</div>` : ""}
+          </div>
+          <div style="font-size:13px;font-weight:700;flex-shrink:0;">${m.consumed.toFixed(0)}</div>
+          <button class="btn-ghost" style="flex-shrink:0;" onclick="removeMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
+        </div>`;
+      });
+      h += `</div>`;
+    }
+
+    if (showCloseDayConfirm && c.todayStats) {
+      h += `<div class="card" style="border-color:var(--amber);margin-top:14px;">
+        <div style="font-weight:700;margin-bottom:10px;">Resumen final de hoy</div>
+        <div class="col gap6" style="margin-bottom:12px;">
+          ${c.todayStats.meals.map((m) => `<div class="row" style="justify-content:space-between;font-size:12px;"><span class="dim" style="font-style:italic;">${esc(m.note)}</span><span>${m.consumed.toFixed(0)} kcal</span></div>`).join("")}
+        </div>
+        <div class="grid2" style="margin-bottom:12px;">
+          ${Stat("Consumido", c.todayStats.consumed.toFixed(0) + " kcal")}
+          ${Stat("Gasto", c.todayStats.gasto.toFixed(0) + " kcal" + (c.todayStats.usedAppTotal ? " (app)" : ""))}
+          ${Stat("Balance", bal.text, bal.color)}
+          ${Stat("Proteína", c.todayStats.protein.toFixed(0) + " g", "var(--protein)")}
+        </div>
+        <div class="row gap10">
+          <button class="btn-sage" style="flex:1;" onclick="closeToday()">Confirmar y cerrar</button>
+          <button class="btn-secondary" onclick="cancelCloseDayConfirm()">Seguir agregando</button>
+        </div>
+      </div>`;
+    }
+
+    return h + `</div>`;
+  }
+
+  // ---------- PANTALLA: HISTORIAL ----------
+  function screenHistorial(c) {
+    let h = `<div class="screen">
+      <div class="topbar"><div style="font-size:22px;font-weight:700;">Historial</div>
+      <span class="small dim">${c.dayStats.length} día${c.dayStats.length !== 1 ? "s" : ""}</span></div>`;
+
+    if (c.dayStats.length === 0) {
+      h += `<div class="card" style="text-align:center;padding:32px 20px;"><div class="small dim">Todavía no registraste ninguna comida.</div></div>`;
+      return h + `</div>`;
+    }
+
+    h += `<div class="col gap10">`;
+    c.dayStats.forEach((day) => {
+      const bal = formatBalance(day.net);
+      h += `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;">
+        <div class="row" style="align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;gap:8px;" onclick="toggleDayExpand('${day.date}')">
+          <div style="flex:1;min-width:0;">
+            <div class="small" style="font-weight:700;">${formatDate(day.date)} <span class="dim" style="font-weight:400;">· ${day.meals.length} comida${day.meals.length !== 1 ? "s" : ""}</span>${day.closed ? ` <span style="color:var(--sage);font-weight:700;font-size:11px;">✓</span>` : ""}</div>
+            <div class="xs dim">${day.consumed.toFixed(0)} kcal · gasto ${day.gasto.toFixed(0)}${day.usedAppTotal ? " (app)" : ""} · ${macroInline(day.protein, day.carbs, day.fat)}</div>
+          </div>
+          <div style="font-weight:700;font-size:15px;color:${bal.color};flex-shrink:0;">${bal.text}</div>
+          <span class="dim" style="flex-shrink:0;">${expandedDays[day.date] ? "▲" : "▼"}</span>
+        </div>`;
+
+      if (expandedDays[day.date]) {
+        h += `<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;">`;
+
+        if (editingDayMeta === day.date) {
+          h += `<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--amber);">
             <div class="grid2" style="margin-bottom:10px;">
-              <div><label class="label">Gramos por día</label><input type="number" value="${esc(goal.proteinTarget || calcProteinTarget(goal.currentWeight))}" onchange="updateGoalField('proteinTarget', this.value, true)"></div>
+              <div><label class="label">Gasto total de una app</label><input id="edit-day-te-${day.date}" type="number" placeholder="vacío = base + ejercicio" value="${day.usedAppTotal ? day.gasto : ""}"></div>
+              <div><label class="label">Ejercicio (kcal)</label><input id="edit-day-ex-${day.date}" type="number" value="${day.exercise || 0}"></div>
             </div>
-            <div class="xs dim" style="margin-bottom:10px;">Por defecto se calcula como 1.8 g por kg de tu peso actual. Lo podés pisar con tu propio número, o recalcularlo si cambiaste de peso.</div>
-            <button class="btn-secondary" onclick="recalcProteinTarget()">Recalcular objetivo de proteína (1.8 g/kg)</button>
-          </div>
-
-          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;">Copia de seguridad</div>
-            <div class="xs dim" style="margin-bottom:10px;">Descargá un archivo con todo tu progreso guardado. Nunca toques "Unpublish" en el artifact: eso sí borra los datos para siempre. Republicar/actualizar el código es seguro.</div>
-            <div class="row gap10" style="flex-wrap:wrap;">
-              <button class="btn-secondary" onclick="exportBackup()">&#8681; Descargar respaldo</button>
-              <button class="btn-secondary" onclick="triggerImport()">&#8679; Restaurar respaldo</button>
-              <input id="backup-file-input" type="file" accept="application/json" style="display:none" onchange="handleImportFile(this)">
+            <div class="row gap8">
+              <button class="btn-sage" onclick="saveEditDayMeta('${day.date}')">Guardar</button>
+              <button class="btn-secondary" onclick="cancelEditDayMeta()">Cancelar</button>
             </div>
-            ${importMsg ? `<div class="small" style="color:var(--sage);margin-top:8px;">${esc(importMsg)}</div>` : ""}
-          </div>
-
-          <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:16px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--rust);">Zona de peligro</div>
-            <div class="xs dim" style="margin-bottom:10px;">Esto borra todas tus comidas, pesajes, racha y objetivo, y te lleva de nuevo a la pantalla de bienvenida para arrancar de cero. No se puede deshacer — si querés, primero descargá un respaldo arriba.</div>
-            ${showResetConfirm
-              ? `<div style="background:var(--surfaceRaised);border:1px solid var(--rust);border-radius:10px;padding:14px;">
-                  <div style="font-weight:700;margin-bottom:10px;">¿Seguro que querés borrar todo?</div>
-                  <div class="row gap10">
-                    <button class="btn-secondary" style="border-color:var(--rust);color:var(--rust);flex:1;" onclick="confirmResetAllData()">Sí, borrar todo</button>
-                    <button class="btn-secondary" style="flex:1;" onclick="cancelResetConfirm()">Cancelar</button>
-                  </div>
-                </div>`
-              : `<button class="btn-secondary" style="border-color:var(--rust);color:var(--rust);" onclick="openResetConfirm()">&#128465;&#65039; Borrar todo y empezar de cero</button>`
-            }
-          </div>
-        </div>`;
-    }
-
-    // GAP BANNER
-    if (showGapBanner) {
-      const missingJson = esc(JSON.stringify(missingDates)).replace(/"/g, "&quot;");
-      const avgJson = esc(JSON.stringify(avgForFill)).replace(/"/g, "&quot;");
-      html += `
-        <div class="card" style="border-color:var(--amber);">
-          <div class="title" style="margin-bottom:6px;">Te faltan ${missingDates.length} día${missingDates.length !== 1 ? "s" : ""} sin registrar</div>
-          <div class="small dim" style="margin-bottom:14px;">Del ${formatDate(missingDates[0])} al ${formatDate(missingDates[missingDates.length - 1])}. ¿Qué hacemos con esos días para no perder la cuenta?</div>
-          <div class="row gap10" style="flex-wrap:wrap;">
-            <button class="btn-primary" onclick='fillGapDays("neutral", "${missingJson}", "${avgJson}")'>Completar como días neutros</button>
-            <button class="btn-secondary" ${daysCount === 0 ? "disabled" : ""} onclick='fillGapDays("average", "${missingJson}", "${avgJson}")'>Completar con mi promedio</button>
-            <button class="btn-secondary" onclick="ignoreGapDays()">Ignorar</button>
-          </div>
-        </div>`;
-    }
-
-    // GAUGE
-    html += `
-      <div class="card">
-        <div class="row" style="align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-          <div>
-            <div class="small dim" style="margin-bottom:2px;">&#128293; Calorías quemadas</div>
-            <div style="font-size:28px;font-weight:700;">${totalDeficitDisplay.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal</div>
-            <div class="small" style="color:var(--sage);margin-top:2px;">&asymp; ${Math.max(0, kgLost).toFixed(1)} kg perdidos</div>
-          </div>
-          <div style="text-align:right;">
-            <div class="small dim">${pct.toFixed(1)}% del objetivo</div>
-            <div class="xs dim" style="margin-top:2px;">${remaining > 0 ? `Faltan ${remaining.toLocaleString("es-ES", { maximumFractionDigits: 0 })} kcal` : "¡Objetivo cumplido!"}</div>
-            ${streak > 0 ? `<div class="xs" style="color:var(--amber);margin-top:4px;">&#128293; Racha: ${streak} día${streak !== 1 ? "s" : ""}</div>` : ""}
-          </div>
-        </div>
-        <div style="position:relative;width:100%;height:32px;background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden;">
-          <div style="position:absolute;top:0;left:0;bottom:0;width:${fillWidthPct}%;background:${gaugeColor};transition:width .4s ease, background .4s ease;"></div>
-        </div>
-        <div class="row gap20 small dim" style="margin-top:10px;flex-wrap:wrap;">
-          <span>${gaugeDaysCount} día${gaugeDaysCount !== 1 ? "s" : ""} cerrado${gaugeDaysCount !== 1 ? "s" : ""}</span>
-          <span>Necesitás: ${neededDailyAvg > 0 ? neededDailyAvg.toFixed(0) : 0} kcal/día</span>
-        </div>
-        ${badges.length ? `<div class="row gap8" style="flex-wrap:wrap;margin-top:12px;">${badges.map((b) => `<span class="badge-pill">${b.icon} ${esc(b.label)}</span>`).join("")}</div>` : ""}
-      </div>`;
-
-    // MACROS
-    html += `
-      <div class="card">
-        <div class="title" style="margin-bottom:14px;">&#127859; Macros — promedio diario</div>
-        ${daysCount === 0
-          ? `<div class="small dim">Todavía no hay días registrados para calcular un promedio.</div>`
-          : `<div class="grid4">${Stat("Consumido", avgConsumed.toFixed(0) + " kcal")}${Stat("Proteína", avgProtein.toFixed(0) + " g", "var(--protein)")}${Stat("Carbos", avgCarbs.toFixed(0) + " g", "var(--carbs)")}${Stat("Grasa", avgFat.toFixed(0) + " g", "var(--fat)")}</div>`}
-      </div>`;
-
-    // WEEKLY WEIGH-IN
-    html += `
-      <div class="card">
-        <div class="title" style="margin-bottom:6px;">&#9878; Peso semanal</div>
-        <div class="small dim" style="margin-bottom:12px;">Cargá tu peso real cada semana. Con al menos dos pesajes, la app compara tu bajada real contra el déficit calculado y sugiere ajustar el gasto base.</div>
-        <div class="row gap10" style="margin-bottom:12px;">
-          <input id="weighin-date" type="date" value="${todayISO()}" style="flex:1;">
-          <input id="weighin-weight" type="text" inputmode="decimal" placeholder="Peso (kg)" style="flex:1;">
-          <button class="btn-primary" style="flex-shrink:0;" onclick="addWeighIn()">Guardar</button>
-        </div>`;
-
-    if (calibration) {
-      const kgWord = calibration.actualKgLost >= 0 ? "bajaste" : "subiste";
-      const dirWord = calibration.discrepancyPerDay > 0 ? "subestimado" : "sobreestimado";
-      const wasCapped = Math.abs(calibration.discrepancyPerDay) > Math.abs(calibration.cappedAdjustment);
-      html += `
-        <div style="background:var(--surfaceRaised);border:1px solid var(--amber);border-radius:10px;padding:14px;margin-bottom:12px;">
-          <div class="small" style="margin-bottom:8px;">&#10024; En ${calibration.days} días ${kgWord} ${Math.abs(calibration.actualKgLost).toFixed(1)} kg reales, pero lo registrado sugiere otro ritmo. Tu gasto base parece estar ${dirWord} en ~${Math.abs(calibration.discrepancyPerDay).toFixed(0)} kcal/día.</div>
-          ${Math.abs(calibration.discrepancyPerDay) > 800 ? `<div class="xs" style="color:var(--rust);margin-bottom:8px;">Este desajuste es muy grande para ser solo metabolismo — antes de aplicar, fijate si te faltó cargar alguna comida o algún día completo en este período.</div>` : ""}
-          ${wasCapped ? `<div class="xs dim" style="margin-bottom:8px;">Para no sobrecorregir de una con pocos datos, el ajuste se aplica de a pasos chicos (máximo 400 kcal/día por vez).</div>` : ""}
-          <button class="btn-primary" onclick="applyCalibration(${calibration.suggestedMaintenance})">Aplicar gasto base sugerido (${calibration.suggestedMaintenance.toFixed(0)} kcal)</button>
-        </div>`;
-    }
-
-    if (weighIns.length > 0) {
-      html += `<div class="col gap6">`;
-      wSorted.slice().reverse().forEach((w) => {
-        if (editingWeighInId === w.id) {
-          html += `
-            <div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:8px;padding:8px 12px;gap:8px;border:1px solid var(--amber);">
-              <span class="small">${formatDate(w.date)}</span>
-              <input id="edit-weighin-val-${w.id}" type="text" inputmode="decimal" value="${w.weight}" style="width:80px;padding:4px 8px;">
-              <button class="btn-ghost" style="background:var(--sage);color:#0E1A14;border-radius:6px;" onclick="saveEditWeighIn('${w.id}')">&#10003;</button>
-              <button class="btn-ghost" onclick="cancelEditWeighIn()">&#10005;</button>
-            </div>`;
+          </div>`;
         } else {
-          html += `
-            <div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:8px;padding:8px 12px;">
-              <span class="small">${formatDate(w.date)}</span>
-              <span style="font-weight:700;font-size:14px;">${w.weight.toFixed(1)} kg</span>
-              <div class="row" style="gap:2px;">
-                <button class="btn-ghost" onclick="startEditWeighIn('${w.id}')">&#9998;</button>
-                <button class="btn-ghost" onclick="removeWeighIn('${w.id}')">&#128465;</button>
+          h += `<button onclick="startEditDayMeta('${day.date}')" style="border:1px dashed var(--line);color:var(--textDim);border-radius:8px;padding:7px 10px;font-size:11px;align-self:flex-start;">Editar gasto del día</button>`;
+        }
+
+        day.meals.forEach((m) => {
+          if (editingMealId === m.id) {
+            h += `<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--amber);">
+              <div class="grid2" style="margin-bottom:10px;">
+                <div><label class="label">Fecha</label><input id="edit-meal-date-${m.id}" type="date" value="${m.date}"></div>
+                <div><label class="label">Consumido (kcal)</label><input id="edit-meal-consumed-${m.id}" type="number" value="${m.consumed}"></div>
+              </div>
+              <div class="grid3" style="margin-bottom:10px;">
+                <div><label class="label">Proteína</label><input id="edit-meal-protein-${m.id}" type="number" value="${m.protein}"></div>
+                <div><label class="label">Carbos</label><input id="edit-meal-carbs-${m.id}" type="number" value="${m.carbs}"></div>
+                <div><label class="label">Grasa</label><input id="edit-meal-fat-${m.id}" type="number" value="${m.fat}"></div>
+              </div>
+              <div style="margin-bottom:10px;"><label class="label">Nota</label><input id="edit-meal-note-${m.id}" type="text" value="${esc(m.note)}"></div>
+              <div class="row gap8">
+                <button class="btn-sage" onclick="saveEditMeal('${m.id}')">Guardar</button>
+                <button class="btn-secondary" onclick="cancelEditMeal()">Cancelar</button>
               </div>
             </div>`;
-        }
-      });
-      html += `</div>`;
-    }
-    html += `</div>`;
-
-    // DICTATION
-    html += `<div class="card">
-      <div class="title" style="margin-bottom:6px;">&#127908; Contame qué comiste</div>
-      <div class="small" style="margin-bottom:12px;">&#129385; Proteína hoy: <span style="color:var(--protein);font-weight:700;">${todayProtein.toFixed(0)}g</span> / ${proteinTarget}g objetivo${proteinRemaining > 0 ? ` — <span class="dim">faltan ${proteinRemaining.toFixed(0)}g</span>` : ` — <span style="color:var(--sage);">¡objetivo cumplido!</span>`}</div>`;
-
-    if (todayClosed) {
-      const bal = todayStats ? formatBalance(todayStats.net) : null;
-      const msg = todayStats ? dayCloseMessage(todayStats) : "";
-      html += `
-        <div style="position:relative;overflow:hidden;background:var(--surfaceRaised);border:1px solid var(--sage);border-radius:10px;padding:16px;" class="${justClosedCelebration && todayStats && todayStats.net >= 0 ? "celebrate" : ""}">
-          ${justClosedCelebration && todayStats && todayStats.net >= 0 ? confettiMarkup() : ""}
-          <div class="row gap8" style="align-items:center;margin-bottom:10px;"><span style="color:var(--sage);">&#10003;</span><span class="small" style="font-weight:700;">Ya cerraste el día de hoy</span></div>
-          ${todayStats ? `
-            <div class="col gap6" style="margin-bottom:12px;">
-              ${todayStats.meals.map((m) => `<div class="row" style="justify-content:space-between;font-size:12px;"><span class="dim" style="font-style:italic;">${esc(m.note)}</span><span>${m.consumed.toFixed(0)} kcal</span></div>`).join("")}
-            </div>
-            <div class="grid2" style="margin-bottom:12px;">${Stat("Consumido", todayStats.consumed.toFixed(0) + " kcal")}${Stat("Gasto", todayStats.gasto.toFixed(0) + " kcal")}${Stat("Balance", bal.text, bal.color)}${Stat("Comidas", String(todayStats.meals.length))}${Stat("Proteína", todayStats.protein.toFixed(0) + " g", "var(--protein)")}</div>
-            <div class="small" style="margin-bottom:12px;">${msg}</div>
-          ` : ""}
-          <button class="btn-secondary" onclick="reopenDay('${todayISO()}')">Reabrir el día para agregar algo más</button>
-        </div>`;
-      justClosedCelebration = false;
-    } else {
-      html += `
-        <div class="small dim" style="margin-bottom:12px;">Podés cargar cada comida por separado (desayuno, almuerzo, cena, snacks) cuando quieras — se van sumando al mismo día. Si tenés el gasto total de una app, mencionalo en cualquiera de las comidas del día.</div>`;
-
-      if (todayStats && todayStats.meals.length) {
-        html += `<div class="col gap6" style="margin-bottom:14px;">`;
-        todayStats.meals.forEach((m) => {
-          html += `<div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:8px;padding:8px 10px;">
-            <span class="small dim" style="font-style:italic;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.note)}</span>
-            <span class="small" style="font-weight:700;margin-left:10px;white-space:nowrap;">${m.consumed.toFixed(0)} kcal</span>
-            <button class="btn-ghost" style="margin-left:6px;" onclick="removeMeal('${m.id}')">&#128465;</button>
-          </div>`;
-        });
-        html += `</div>`;
-      }
-
-      html += `
-        <textarea id="dictation-textarea" rows="4" placeholder='Ej: para el almuerzo comí una milanesa con puré y una manzana de postre... (y si tenés: hoy Google Fit me dijo que gasté 2400 calorías)' style="resize:vertical;margin-bottom:12px;">${esc(window.__lastDictation && parsed ? window.__lastDictation : "")}</textarea>
-        <input id="photo-file-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoFile(this)">`;
-
-      if (photo) {
-        html += `
-          <div style="position:relative;display:inline-block;margin-bottom:12px;">
-            <img src="${photo.dataUrl}" alt="Foto de la comida" style="max-height:140px;border-radius:8px;border:1px solid var(--line);display:block;">
-            <button onclick="removePhoto()" style="position:absolute;top:-8px;right:-8px;background:var(--rust);border-radius:50%;width:22px;height:22px;color:#fff;display:flex;align-items:center;justify-content:center;padding:0;">&#10005;</button>
-          </div>`;
-      } else {
-        html += `<button onclick="triggerPhoto()" style="border:1px dashed var(--line);color:var(--textDim);border-radius:8px;padding:8px 14px;font-size:13px;display:flex;align-items:center;gap:6px;margin-bottom:12px;">&#128247; Sacar o subir una foto de la comida</button>`;
-      }
-
-      if (errorMsg) html += `<div class="small" style="color:var(--rust);margin-bottom:10px;">${esc(errorMsg)}</div>`;
-
-      if (!parsed) {
-        html += `<div class="row gap10" style="flex-wrap:wrap;">
-          <button class="btn-primary" ${analyzing || (photo == null) ? "" : ""} onclick="analyze()" ${analyzing ? "disabled" : ""}>${analyzing ? '<span class="spin">&#8635;</span> Analizando...' : "&#10024; Analizar comida"}</button>`;
-        if (todayStats) html += `<button class="btn-secondary" onclick="openCloseDayConfirm()">&#10003; Cerrar día</button>`;
-        html += `</div>`;
-      }
-
-      if (parsed) {
-        html += `
-          <div style="background:var(--surfaceRaised);border-radius:10px;padding:16px;border:1px solid var(--line);">
-            <div class="small dim" style="margin-bottom:10px;font-style:italic;">"${esc(parsed.note)}"</div>
-            <div class="grid2" style="margin-bottom:12px;">
-              ${Stat("Esta comida", parsed.consumed.toFixed(0) + " kcal")}
-              ${Stat("Proteína", parsed.protein.toFixed(0) + " g", "var(--protein)")}
-              ${Stat("Carbos", parsed.carbs.toFixed(0) + " g", "var(--carbs)")}
-              ${Stat("Grasa", parsed.fat.toFixed(0) + " g", "var(--fat)")}
-              ${parsed.totalExpenditure != null ? Stat("Gasto del día (app)", parsed.totalExpenditure.toFixed(0) + " kcal", "var(--amber)") : ""}
-              ${parsed.exercise != null ? Stat("Ejercicio", parsed.exercise.toFixed(0) + " kcal", "var(--amber)") : ""}
-            </div>
-            ${nutritionBadge(parsed.nutritionScore, parsed.nutritionComment)}
-            <div class="xs dim" style="margin-bottom:12px;margin-top:10px;">Esto se suma como una comida más de hoy. El balance del día se recalcula solo con todas las comidas juntas.</div>
-            <div class="row gap10">
-              <button class="btn-sage" style="flex:1;" onclick="confirmSave()">&#10003; Confirmar y sumar</button>
-              <button class="btn-secondary" onclick="discardParsed()">&#10005; Descartar</button>
-            </div>
-          </div>`;
-      }
-
-      if (showCloseDayConfirm && todayStats) {
-        const bal = formatBalance(todayStats.net);
-        html += `
-          <div style="background:var(--surfaceRaised);border:1px solid var(--amber);border-radius:10px;padding:16px;margin-top:12px;">
-            <div style="font-weight:700;margin-bottom:10px;">Resumen final de hoy</div>
-            <div class="col gap6" style="margin-bottom:12px;">
-              ${todayStats.meals.map((m) => `<div class="row" style="justify-content:space-between;font-size:12px;"><span class="dim" style="font-style:italic;">${esc(m.note)}</span><span>${m.consumed.toFixed(0)} kcal</span></div>`).join("")}
-            </div>
-            <div class="grid2" style="margin-bottom:12px;">
-              ${Stat("Consumido", todayStats.consumed.toFixed(0) + " kcal")}
-              ${Stat("Gasto", todayStats.gasto.toFixed(0) + " kcal" + (todayStats.usedAppTotal ? " (app)" : ""))}
-              ${Stat("Balance", bal.text, bal.color)}
-              ${Stat("Comidas", String(todayStats.meals.length))}
-              ${Stat("Proteína", todayStats.protein.toFixed(0) + " g", "var(--protein)")}
-            </div>
-            <div class="row gap10">
-              <button class="btn-sage" style="flex:1;" onclick="closeToday()">Confirmar y cerrar el día</button>
-              <button class="btn-secondary" onclick="cancelCloseDayConfirm()">Seguir agregando</button>
-            </div>
-          </div>`;
-      }
-    }
-    html += `</div>`;
-
-    // HISTORY
-    html += `
-      <div class="card" style="margin-bottom:0;">
-        <div class="row" style="align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleHistoryExpand()">
-          <div class="title">Historial (${dayStats.length} días)</div>
-          <span>${expanded ? "&#9650;" : "&#9660;"}</span>
-        </div>`;
-
-    if (expanded) {
-      html += `<div class="col gap10" style="margin-top:14px;">`;
-      if (dayStats.length === 0) {
-        html += `<div class="small dim" style="padding:12px 0;">Todavía no registraste ninguna comida. Contá arriba para arrancar.</div>`;
-      }
-      dayStats.forEach((day) => {
-        const bal = formatBalance(day.net);
-        html += `<div style="background:var(--surfaceRaised);border-radius:10px;overflow:hidden;">
-          <div class="row" style="align-items:center;justify-content:space-between;padding:10px 12px;cursor:pointer;" onclick="toggleDayExpand('${day.date}')">
-            <div style="flex:1;min-width:0;">
-              <div class="small" style="font-weight:700;">${formatDate(day.date)} <span class="dim" style="font-weight:400;">· ${day.meals.length} comida${day.meals.length !== 1 ? "s" : ""}</span>${day.closed ? ` <span style="color:var(--sage);font-weight:700;font-size:11px;">&#10003; cerrado</span>` : ""}</div>
-              <div class="xs dim">Consumido ${day.consumed.toFixed(0)} kcal · Gasto ${day.gasto.toFixed(0)} kcal${day.usedAppTotal ? " (app)" : ""} · ${macroInline(day.protein, day.carbs, day.fat)}</div>
-            </div>
-            <div class="row" style="align-items:center;gap:4px;font-weight:700;font-size:15px;color:${bal.color};flex-shrink:0;margin-right:8px;">${bal.text}</div>
-            <span>${expandedDays[day.date] ? "&#9650;" : "&#9660;"}</span>
-          </div>`;
-
-        if (expandedDays[day.date]) {
-          html += `<div style="padding:0 12px 12px;display:flex;flex-direction:column;gap:8px;">`;
-
-          if (editingDayMeta === day.date) {
-            html += `
-              <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--amber);">
-                <div class="grid2" style="margin-bottom:10px;">
-                  <div><label class="xs dim" style="display:block;margin-bottom:3px;">Gasto total de una app (opcional)</label><input id="edit-day-te-${day.date}" type="number" placeholder="vacío = usar base + ejercicio" value="${day.usedAppTotal ? day.gasto : ""}"></div>
-                  <div><label class="xs dim" style="display:block;margin-bottom:3px;">Ejercicio (kcal)</label><input id="edit-day-ex-${day.date}" type="number" value="${day.exercise || 0}"></div>
-                </div>
-                <div class="row gap8">
-                  <button class="btn-sage" onclick="saveEditDayMeta('${day.date}')">Guardar</button>
-                  <button class="btn-secondary" onclick="cancelEditDayMeta()">Cancelar</button>
-                </div>
-              </div>`;
           } else {
-            html += `<button onclick="startEditDayMeta('${day.date}')" style="border:1px dashed var(--line);color:var(--textDim);border-radius:8px;padding:6px 10px;font-size:11px;align-self:flex-start;">&#9998; Editar gasto del día</button>`;
+            h += `<div class="row" style="align-items:center;justify-content:space-between;background:var(--bg);border-radius:8px;padding:8px 10px;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                <div class="small dim" style="font-style:italic;">${esc(m.note)}</div>
+                <div class="xs dim">${m.consumed.toFixed(0)} kcal · ${macroInline(m.protein, m.carbs, m.fat)}</div>
+                ${m.score != null ? `<div class="xs" style="margin-top:4px;"><span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:1px 8px;font-weight:700;">${m.score}/10</span> <span class="dim">${esc(m.comment || "")}</span></div>` : ""}
+              </div>
+              <button class="btn-ghost" onclick="startEditMeal('${m.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
+              <button class="btn-ghost" onclick="removeMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
+            </div>`;
           }
+        });
 
-          day.meals.forEach((m) => {
-            if (editingMealId === m.id) {
-              html += `
-                <div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--amber);">
-                  <div class="grid2" style="margin-bottom:10px;">
-                    <div><label class="xs dim" style="display:block;margin-bottom:3px;">Fecha</label><input id="edit-meal-date-${m.id}" type="date" value="${m.date}"></div>
-                    <div><label class="xs dim" style="display:block;margin-bottom:3px;">Consumido (kcal)</label><input id="edit-meal-consumed-${m.id}" type="number" value="${m.consumed}"></div>
-                  </div>
-                  <div class="grid3" style="margin-bottom:10px;">
-                    <div><label class="xs dim" style="display:block;margin-bottom:3px;">Proteína (g)</label><input id="edit-meal-protein-${m.id}" type="number" value="${m.protein}"></div>
-                    <div><label class="xs dim" style="display:block;margin-bottom:3px;">Carbos (g)</label><input id="edit-meal-carbs-${m.id}" type="number" value="${m.carbs}"></div>
-                    <div><label class="xs dim" style="display:block;margin-bottom:3px;">Grasa (g)</label><input id="edit-meal-fat-${m.id}" type="number" value="${m.fat}"></div>
-                  </div>
-                  <div style="margin-bottom:10px;"><label class="xs dim" style="display:block;margin-bottom:3px;">Nota</label><input id="edit-meal-note-${m.id}" type="text" value="${esc(m.note)}"></div>
-                  <div class="row gap8">
-                    <button class="btn-sage" onclick="saveEditMeal('${m.id}')">Guardar</button>
-                    <button class="btn-secondary" onclick="cancelEditMeal()">Cancelar</button>
-                  </div>
-                </div>`;
-            } else {
-              html += `
-                <div class="row" style="align-items:center;justify-content:space-between;background:var(--bg);border-radius:8px;padding:8px 10px;gap:8px;">
-                  <div style="flex:1;min-width:0;">
-                    <div class="small dim" style="font-style:italic;">${esc(m.note)}</div>
-                    <div class="xs dim">${m.consumed.toFixed(0)} kcal · ${macroInline(m.protein, m.carbs, m.fat)}</div>
-                    ${m.score != null ? `<div class="xs" style="margin-top:4px;"><span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:1px 8px;font-weight:700;">${m.score}/10</span> <span class="dim">${esc(m.comment || "")}</span></div>` : ""}
-                  </div>
-                  <button class="btn-ghost" onclick="startEditMeal('${m.id}')">&#9998;</button>
-                  <button class="btn-ghost" onclick="removeMeal('${m.id}')">&#128465;</button>
-                </div>`;
-            }
-          });
+        h += `<div class="row gap12" style="margin-top:4px;">`;
+        if (day.closed) h += `<button style="color:var(--amber);font-size:11px;" onclick="reopenDay('${day.date}')">Reabrir día</button>`;
+        h += `<button style="color:var(--rust);font-size:11px;" onclick="removeDay('${day.date}')">Borrar todo el día</button></div></div>`;
+      }
+      h += `</div>`;
+    });
 
-          html += `<div class="row gap12">`;
-          if (day.closed) html += `<button style="color:var(--amber);font-size:11px;" onclick="reopenDay('${day.date}')">Reabrir día</button>`;
-          html += `<button style="color:var(--rust);font-size:11px;" onclick="removeDay('${day.date}')">Borrar todo el día</button></div>`;
-          html += `</div>`;
-        }
-        html += `</div>`;
-      });
-      html += `</div>`;
-    }
-    html += `</div></div>`;
+    return h + `</div></div>`;
+  }
 
-    html += `
-      <div class="fab-stack">
-        <button class="fab-btn" onclick="toggleTheme()" aria-label="Cambiar tema">${goal.theme === "light" ? "&#127769;" : "&#9728;&#65039;"}</button>
-        <button class="fab-btn" onclick="toggleSettings()" aria-label="Configuración">&#9881;&#65039;</button>
+  // ---------- PANTALLA: PROGRESO ----------
+  function screenProgreso(c) {
+    const ws = c.wSorted;
+    const ultimo = ws.length ? ws[ws.length - 1] : null;
+    const primero = ws.length ? ws[0] : null;
+    const bajado = primero && ultimo ? primero.weight - ultimo.weight : 0;
+    const diasPesaje = primero && ultimo ? Math.max(1, dayDiff(primero.date, ultimo.date)) : 0;
+    const ritmoSemanal = diasPesaje > 0 ? (bajado / diasPesaje) * 7 : 0;
+
+    let h = `<div class="screen">
+      <div class="topbar"><div style="font-size:22px;font-weight:700;">Progreso</div></div>`;
+
+    h += `<div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:16px;">
+        <div class="title">Peso</div>
+        <div class="row gap14">
+          <span class="xs dim"><span class="dash" style="background:var(--amber);"></span>Real</span>
+          <span class="xs dim"><span class="dash" style="background:var(--textDim);"></span>Plan</span>
+        </div>
+      </div>
+      ${weightChartSVG()}`;
+
+    if (ultimo) {
+      h += `<div class="row gap24" style="margin-top:14px;flex-wrap:wrap;">
+        <div><div class="stat-label">Ahora</div><div style="font-size:20px;font-weight:700;">${ultimo.weight.toFixed(1)} <span class="small dim" style="font-weight:400;">kg</span></div></div>
+        <div><div class="stat-label">Bajaste</div><div style="font-size:20px;font-weight:700;color:${bajado >= 0 ? "var(--sage)" : "var(--rust)"};">${bajado >= 0 ? "-" : "+"}${Math.abs(bajado).toFixed(1)} <span class="small dim" style="font-weight:400;">kg</span></div></div>
+        <div><div class="stat-label">Ritmo</div><div style="font-size:20px;font-weight:700;">${Math.abs(ritmoSemanal).toFixed(1)} <span class="small dim" style="font-weight:400;">kg/sem</span></div></div>
       </div>`;
+    }
+    h += `</div>`;
+
+    if (c.calibration) {
+      const cal = c.calibration;
+      const kgWord = cal.actualKgLost >= 0 ? "bajaste" : "subiste";
+      const dirWord = cal.discrepancyPerDay > 0 ? "más alto" : "más bajo";
+      const wasCapped = Math.abs(cal.discrepancyPerDay) > Math.abs(cal.cappedAdjustment);
+      h += `<div class="card" style="border-color:var(--amber);">
+        <div class="row gap8" style="align-items:center;margin-bottom:8px;">${icon("tune", "var(--amber)", 17)}<div class="small" style="font-weight:700;">Ajuste sugerido</div></div>
+        <div class="small dim" style="line-height:1.45;margin-bottom:14px;">En ${cal.days} días ${kgWord} ${Math.abs(cal.actualKgLost).toFixed(1)} kg reales, pero lo registrado sugiere otro ritmo. Tu gasto base real parece estar ${dirWord}: cerca de <span style="color:var(--text);font-weight:700;">${cal.suggestedMaintenance} kcal</span>, no ${goal.maintenance}.</div>
+        ${Math.abs(cal.discrepancyPerDay) > 800 ? `<div class="xs" style="color:var(--rust);margin-bottom:10px;">Este desajuste es muy grande para ser solo metabolismo — fijate si te faltó cargar alguna comida o algún día entero.</div>` : ""}
+        ${wasCapped ? `<div class="xs dim" style="margin-bottom:10px;">Para no sobrecorregir con pocos datos, el ajuste se aplica de a pasos de máximo 400 kcal/día.</div>` : ""}
+        <div class="row gap10">
+          <button class="btn-primary" style="flex:1;" onclick="applyCalibration(${cal.suggestedMaintenance})">Aplicar</button>
+          <button class="btn-secondary" style="flex:1;" onclick="dismissCalibration(${cal.suggestedMaintenance})">Ahora no</button>
+        </div>
+      </div>`;
+    }
+
+    h += `<div class="card" style="margin-bottom:0;">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="title">Pesajes</div>
+      </div>
+      <div class="small dim" style="margin-bottom:12px;">Cargá tu peso real cada semana. Con al menos dos pesajes la app compara tu bajada real contra el déficit calculado.</div>
+      <div class="row gap10" style="margin-bottom:14px;">
+        <input id="weighin-date" type="date" value="${todayISO()}" style="flex:1;">
+        <input id="weighin-weight" type="text" inputmode="decimal" placeholder="Peso (kg)" style="flex:1;">
+        <button class="btn-primary" style="flex-shrink:0;" onclick="addWeighIn()">Guardar</button>
+      </div>`;
+
+    if (ws.length) {
+      h += `<div class="col gap8">`;
+      ws.slice().reverse().forEach((w, i, arr) => {
+        const anterior = arr[i + 1];
+        const delta = anterior ? w.weight - anterior.weight : null;
+        if (editingWeighInId === w.id) {
+          h += `<div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:10px;padding:10px 12px;gap:8px;border:1px solid var(--amber);">
+            <span class="small">${formatDate(w.date)}</span>
+            <input id="edit-weighin-val-${w.id}" type="text" inputmode="decimal" value="${w.weight}" style="width:86px;padding:6px 8px;">
+            <button class="btn-ghost" onclick="saveEditWeighIn('${w.id}')" aria-label="Guardar">${icon("check", "var(--sage)", 18)}</button>
+            <button class="btn-ghost" onclick="cancelEditWeighIn()" aria-label="Cancelar">${icon("close", "var(--textDim)", 18)}</button>
+          </div>`;
+        } else {
+          h += `<div class="row" style="justify-content:space-between;align-items:center;background:var(--surfaceRaised);border-radius:10px;padding:10px 12px;gap:8px;">
+            <span class="small" style="flex:1;min-width:0;">${formatDate(w.date)}</span>
+            ${delta != null ? `<span class="xs" style="color:${delta <= 0 ? "var(--sage)" : "var(--rust)"};">${delta <= 0 ? "" : "+"}${delta.toFixed(1)}</span>` : ""}
+            <span style="font-weight:700;font-size:15px;">${w.weight.toFixed(1)} kg</span>
+            <button class="btn-ghost" onclick="startEditWeighIn('${w.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
+            <button class="btn-ghost" onclick="removeWeighIn('${w.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
+          </div>`;
+        }
+      });
+      h += `</div>`;
+    }
+
+    h += `</div>`;
+
+    // Promedios diarios: dato de contexto, no protagonista.
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:14px;">Promedio diario</div>
+      ${c.daysCount === 0
+        ? `<div class="small dim">Todavía no hay días registrados.</div>`
+        : `<div class="grid4">${Stat("Consumido", c.avgConsumed.toFixed(0))}${Stat("Proteína", c.avgProtein.toFixed(0) + " g", "var(--protein)")}${Stat("Carbos", c.avgCarbs.toFixed(0) + " g", "var(--carbs)")}${Stat("Grasa", c.avgFat.toFixed(0) + " g", "var(--fat)")}</div>`}
+    </div>`;
+
+    return h + `</div>`;
+  }
+
+  // ---------- PANTALLA: AJUSTES ----------
+  function screenAjustes(c) {
+    let h = `<div class="screen">
+      <div class="topbar">
+        <div style="font-size:22px;font-weight:700;">Ajustes</div>
+        <button class="btn-secondary" onclick="toggleTheme()">${goal.theme === "light" ? "Oscuro" : "Claro"}</button>
+      </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:12px;">Objetivo</div>
+      <div class="grid2" style="margin-bottom:12px;">
+        <div><label class="label">Peso actual (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.currentWeight)}" onchange="updateGoalField('currentWeight', this.value, true)"></div>
+        <div><label class="label">Peso objetivo (kg)</label><input type="text" inputmode="decimal" value="${esc(goal.goalWeight)}" onchange="updateGoalField('goalWeight', this.value, true)"></div>
+      </div>
+      <div class="grid2">
+        <div><label class="label">Fecha objetivo</label><input type="date" value="${esc(goal.goalDate)}" onchange="updateGoalField('goalDate', this.value, false)"></div>
+        <div><label class="label">Gasto base diario (kcal)</label><input type="number" value="${esc(goal.maintenance)}" onchange="updateGoalField('maintenance', this.value, true)"></div>
+      </div>
+      <div class="xs dim" style="margin-top:10px;">El gasto base se usa solo los días en que no dictes un total de gasto de una app (Google Fit, reloj, etc).</div>
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:10px;">Umbral de superávit</div>
+      <div class="grid2"><div><label class="label">Amarillo → rojo a partir de (kcal)</label><input type="number" step="10" value="${esc(goal.surplusAlertThreshold ?? 300)}" onchange="updateGoalField('surplusAlertThreshold', this.value, true)"></div></div>
+      <div class="xs dim" style="margin-top:6px;">Un superávit por debajo de este número se muestra en amarillo; por encima, en rojo.</div>
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:10px;">Datos personales</div>
+      <div class="grid2" style="margin-bottom:12px;">
+        <div><label class="label">Altura (cm)</label><input type="number" value="${esc(goal.height || "")}" onchange="updateGoalField('height', this.value, true)"></div>
+        <div><label class="label">Edad</label><input type="number" value="${esc(goal.age || "")}" onchange="updateGoalField('age', this.value, true)"></div>
+      </div>
+      <div style="margin-bottom:12px;"><label class="label">Sexo</label>
+        <select onchange="updateGoalField('gender', this.value, false)">
+          <option value="male" ${goal.gender === "male" ? "selected" : ""}>Masculino</option>
+          <option value="female" ${goal.gender === "female" ? "selected" : ""}>Femenino</option>
+        </select>
+      </div>
+      <div class="xs dim" style="margin-bottom:12px;">Este cálculo es siempre tu base sin ejercicio. El ejercicio se suma aparte, día a día, cuando lo dictás.</div>
+      <button class="btn-secondary" onclick="recalcMaintenance()">Recalcular gasto base</button>
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:10px;">Proteína diaria</div>
+      <div class="grid2" style="margin-bottom:10px;"><div><label class="label">Gramos por día</label><input type="number" value="${esc(goal.proteinTarget || calcProteinTarget(goal.currentWeight))}" onchange="updateGoalField('proteinTarget', this.value, true)"></div></div>
+      <div class="xs dim" style="margin-bottom:12px;">Por defecto, 1,8 g por kg de tu peso actual. Lo podés pisar con tu propio número.</div>
+      <button class="btn-secondary" onclick="recalcProteinTarget()">Recalcular (1,8 g/kg)</button>
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:8px;">Copia de seguridad</div>
+      <div class="xs dim" style="margin-bottom:12px;">Tus datos viven solo en este navegador. Si cambiás de celular o borrás datos de Safari, se pierden. Descargá un respaldo cada tanto.</div>
+      <div class="row gap10" style="flex-wrap:wrap;">
+        <button class="btn-secondary" onclick="exportBackup()">Descargar respaldo</button>
+        <button class="btn-secondary" onclick="triggerImport()">Restaurar respaldo</button>
+        <input id="backup-file-input" type="file" accept="application/json" style="display:none" onchange="handleImportFile(this)">
+      </div>
+      ${importMsg ? `<div class="small" style="color:var(--sage);margin-top:10px;">${esc(importMsg)}</div>` : ""}
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:8px;color:var(--rust);">Zona de peligro</div>
+      <div class="xs dim" style="margin-bottom:12px;">Borra todas tus comidas, pesajes, racha y objetivo, y te lleva de nuevo a la bienvenida. No se puede deshacer.</div>
+      ${showResetConfirm
+        ? `<div style="background:var(--surfaceRaised);border:1px solid var(--rust);border-radius:10px;padding:14px;">
+            <div style="font-weight:700;margin-bottom:10px;">¿Seguro que querés borrar todo?</div>
+            <div class="row gap10">
+              <button class="btn-secondary" style="border-color:var(--rust);color:var(--rust);flex:1;" onclick="confirmResetAllData()">Sí, borrar todo</button>
+              <button class="btn-secondary" style="flex:1;" onclick="cancelResetConfirm()">Cancelar</button>
+            </div>
+          </div>`
+        : `<button class="btn-secondary" style="border-color:var(--rust);color:var(--rust);" onclick="openResetConfirm()">Borrar todo y empezar de cero</button>`}
+    </div>`;
+
+    // La cadena de versión vive acá, no en la pantalla principal: es una nota
+    // de desarrollo, no información para el usuario.
+    h += `<div class="xs dim" style="text-align:center;padding:8px 0 4px;">${APP_VERSION}</div>`;
+
+    return h + `</div>`;
+  }
+
+  // ---------- HOJA DE CARGA ----------
+  function sheetCaptura(c) {
+    let h = `<div class="sheet-backdrop" onclick="closeCapture()"></div><div class="sheet">
+      <div class="grab"></div>`;
+
+    if (parsed) {
+      // Resultado del análisis: primero la frase que entendió el modelo, para
+      // que un malentendido se vea antes de mirar ningún número.
+      const maxMacro = Math.max(parsed.protein, parsed.carbs, parsed.fat, 1);
+      const barra = (label, val, color) => `<div>
+        <div class="row" style="justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>${label}</span><span class="dim">${val.toFixed(0)} g</span></div>
+        <div class="track" style="height:5px;"><i style="width:${((val / maxMacro) * 100).toFixed(0)}%;background:${color};"></i></div>
+      </div>`;
+
+      h += `<div class="stat-label" style="margin-bottom:6px;">Esto entendí</div>
+      <div style="font-size:16px;line-height:1.35;margin-bottom:18px;">${esc(parsed.note)}</div>
+
+      <div class="row" style="align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:12px;">
+        <div class="row" style="align-items:baseline;gap:6px;">
+          <div style="font-size:42px;font-weight:700;line-height:1;letter-spacing:-1px;">${parsed.consumed.toFixed(0)}</div>
+          <div class="small dim">kcal</div>
+        </div>
+        ${parsed.nutritionScore != null ? `<div class="row gap8" style="align-items:center;">
+          <span style="background:${nutritionColor(parsed.nutritionScore)};color:#fff;border-radius:999px;padding:4px 11px;font-size:14px;font-weight:700;">${parsed.nutritionScore}/10</span>
+          <span class="small dim" style="max-width:120px;">${esc(parsed.nutritionComment || "")}</span>
+        </div>` : ""}
+      </div>
+
+      <div class="col gap12" style="margin-bottom:18px;">
+        ${barra("Proteína", parsed.protein, "var(--protein)")}
+        ${barra("Carbohidratos", parsed.carbs, "var(--carbs)")}
+        ${barra("Grasas", parsed.fat, "var(--fat)")}
+      </div>`;
+
+      if (parsed.totalExpenditure != null || parsed.exercise != null) {
+        h += `<div class="grid2" style="margin-bottom:18px;">
+          ${parsed.totalExpenditure != null ? Stat("Gasto del día (app)", parsed.totalExpenditure.toFixed(0) + " kcal", "var(--amber)") : ""}
+          ${parsed.exercise != null ? Stat("Ejercicio", parsed.exercise.toFixed(0) + " kcal", "var(--amber)") : ""}
+        </div>`;
+      }
+
+      h += `<div class="xs dim" style="margin-bottom:16px;">Se suma como una comida más de hoy. Si algún número está mal, guardalo igual y corregilo después desde Historial.</div>
+      <div class="row gap10">
+        <button class="btn-secondary" style="width:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;" onclick="discardParsed()" aria-label="Descartar">${icon("close", "var(--textDim)", 19)}</button>
+        <button class="btn-sage big-btn" style="flex:1;" onclick="confirmSave()">Guardar comida</button>
+      </div>`;
+
+      return h + `</div>`;
+    }
+
+    h += `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:700;">¿Qué comiste?</div>
+      <button class="icon-btn" onclick="closeCapture()" aria-label="Cerrar">${icon("close", "var(--textDim)", 20)}</button>
+    </div>
+
+    <textarea id="dictation-textarea" rows="4" placeholder="Ej: para el almuerzo comí una milanesa con puré y una manzana de postre… (y si tenés: hoy Google Fit me dijo que gasté 2400 calorías)" style="resize:vertical;margin-bottom:12px;">${esc(dictationDraft)}</textarea>
+    <input id="photo-file-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoFile(this)">`;
+
+    if (photo) {
+      const kb = Math.round((photo.dataUrl.length * 0.75) / 1024);
+      h += `<div class="row gap12" style="align-items:center;background:var(--surfaceRaised);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <img src="${photo.dataUrl}" alt="Foto de la comida" style="width:46px;height:46px;border-radius:8px;object-fit:cover;flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div class="small">Foto adjunta</div>
+          <div class="xs dim">Redimensionada a 1024 px · ${kb} KB</div>
+        </div>
+        <button class="btn-ghost" onclick="removePhoto()" aria-label="Quitar foto">${icon("close", "var(--textDim)", 18)}</button>
+      </div>`;
+    }
+
+    if (errorMsg) h += `<div class="small" style="color:var(--rust);margin-bottom:12px;">${esc(errorMsg)}</div>`;
+
+    h += `<div class="row gap10" style="margin-bottom:10px;">
+      <button class="btn-secondary big-btn" style="flex:1;" onclick="focusDictation()">${icon("mic", "var(--text)", 19)} Dictar</button>
+      <button class="btn-secondary big-btn" style="flex:1;" onclick="triggerPhoto()">${icon("camera", "var(--text)", 19)} ${photo ? "Otra foto" : "Foto"}</button>
+    </div>
+    <button class="btn-primary big-btn" style="width:100%;" onclick="analyze()" ${analyzing ? "disabled" : ""}>${analyzing ? '<span class="spin">↻</span> Analizando…' : "Analizar"}</button>`;
+
+    return h + `</div>`;
+  }
+
+  function renderApp() {
+    const c = computeCtx();
+    let html = "";
+    if (activeTab === "historial") html += screenHistorial(c);
+    else if (activeTab === "progreso") html += screenProgreso(c);
+    else if (activeTab === "ajustes") html += screenAjustes(c);
+    else html += screenHoy(c);
+
+    html += navMarkup();
+    if (showCapture) html += sheetCaptura(c);
 
     document.getElementById("root").innerHTML = html;
   }
 
+  function saveDictationDraft() {
+    const t = document.getElementById("dictation-textarea");
+    if (t) dictationDraft = t.value;
+  }
+
   function render() {
+    // Antes de reemplazar el DOM, rescatamos lo tipeado: de lo contrario
+    // cualquier acción que redibuje (adjuntar foto, un error) lo borraba.
+    saveDictationDraft();
     if (loading) { renderLoading(); return; }
     if (!goal.onboarded) { renderOnboarding(); return; }
     renderApp();
