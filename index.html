@@ -125,7 +125,7 @@
   };
 
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v13.1-html · validación de origen por mismo host";
+  const APP_VERSION = "v14-html · validación de peso, altura y edad";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -142,6 +142,8 @@
   // borraba el dictado a medio escribir.
   let dictationDraft = "";
   let calibrationDismissed = null; // gasto base sugerido que ya postergaste
+  let onboardError = "";           // errores de validación en la bienvenida
+  let ajustesMsg = null;           // {tipo: "error"|"ok", texto} al recalcular
   let expanded = true;
   let expandedDays = {};
   let showSettings = false;
@@ -178,6 +180,50 @@ function todayISO() {
     const bmr = gender === "female" ? 10 * weight + 6.25 * height - 5 * age - 161 : 10 * weight + 6.25 * height - 5 * age + 5;
     return Math.round(bmr * 1.2);
   }
+
+  // ---------- validación de los datos personales ----------
+  //
+  // La fórmula de arriba es lineal y no tiene forma de saber si le están dando
+  // basura: se traga cualquier número y devuelve algo. Sin estas guardas, tres
+  // errores de carga muy comunes producían datos inservibles sin un solo aviso:
+  //
+  //   1. Altura en metros (1,75) en vez de centímetros (175). El término
+  //      6,25 × altura aporta 11 kcal en lugar de 1.094, y el gasto base queda
+  //      en ~830 kcal/día. Le pasó a un usuario real.
+  //   2. Año de nacimiento (1998) en el campo de edad: el gasto base da
+  //      NEGATIVO (-9.709 kcal/día) y todos los balances quedan invertidos.
+  //   3. Coma decimal en un input type="number": el navegador devuelve string
+  //      vacío, toNumber lo convierte en 0, y ese 0 se guardaba en silencio.
+  //
+  // El piso y el techo del gasto base son la última red: applyCalibration ya
+  // tenía Math.max(1200, ...), pero el camino de la fórmula no tenía nada.
+  const LIMITES = {
+    peso: { min: 30, max: 300, texto: "El peso tiene que estar entre 30 y 300 kg." },
+    altura: { min: 120, max: 230, texto: "La altura tiene que estar entre 120 y 230 cm." },
+    edad: { min: 14, max: 100, texto: "La edad tiene que estar entre 14 y 100 años." },
+  };
+  const GASTO_MIN = 1000;
+  const GASTO_MAX = 4500;
+
+  // Nadie mide 1,75 cm. Si el número es menor a 3, vino en metros: lo pasamos a
+  // centímetros en vez de rechazarlo, que es lo que la persona quiso decir.
+  function alturaACm(v) {
+    const n = toNumber(v);
+    return n > 0 && n < 3 ? Math.round(n * 100) : n;
+  }
+
+  function validarPersonales({ peso, altura, edad }) {
+    const errores = [];
+    if (!(peso >= LIMITES.peso.min && peso <= LIMITES.peso.max)) errores.push(LIMITES.peso.texto);
+    if (!(altura >= LIMITES.altura.min && altura <= LIMITES.altura.max)) errores.push(LIMITES.altura.texto);
+    if (!(edad >= LIMITES.edad.min && edad <= LIMITES.edad.max)) errores.push(LIMITES.edad.texto);
+    return errores;
+  }
+
+  function gastoPlausible(v) {
+    return typeof v === "number" && isFinite(v) && v >= GASTO_MIN && v <= GASTO_MAX;
+  }
+
   // 1.8 g de proteína por kg de peso actual: rango razonable para preservar músculo en déficit.
   function calcProteinTarget(weight) { return Math.round((weight || 0) * 1.8); }
   function macroInline(p, c, f) {
@@ -346,14 +392,34 @@ function todayISO() {
   window.completeOnboarding = function () {
     const cw = toNumber(document.getElementById("ob-cw").value);
     const gw = toNumber(document.getElementById("ob-gw").value);
-    const h = toNumber(document.getElementById("ob-h").value);
+    const h = alturaACm(document.getElementById("ob-h").value);
     const a = toNumber(document.getElementById("ob-age").value);
     const gender = document.getElementById("ob-gender").value;
     const goalDate = document.getElementById("ob-date").value;
-    if (!cw || !gw || !h || !a || !goalDate) return;
-    const maintenance = calcMaintenance({ weight: cw, height: h, age: a, gender });
-    goal = { ...goal, currentWeight: cw, goalWeight: gw, goalDate, height: h, age: a, gender, maintenance, proteinTarget: calcProteinTarget(cw), onboarded: true };
-    persistGoal();
+
+    // Antes acá había un `return` pelado: si algo faltaba, el botón no hacía
+    // absolutamente nada y no había forma de saber por qué.
+    const errores = [];
+    if (!cw || !gw) errores.push("Completá tu peso actual y tu peso objetivo.");
+    if (!goalDate) errores.push("Elegí una fecha objetivo.");
+    errores.push.apply(errores, validarPersonales({ peso: cw, altura: h, edad: a }));
+
+    if (errores.length === 0) {
+      const maintenance = calcMaintenance({ weight: cw, height: h, age: a, gender });
+      if (!gastoPlausible(maintenance)) {
+        errores.push(`Con esos datos el gasto base da ${maintenance} kcal/día, que no es posible. Revisá peso, altura y edad.`);
+      } else {
+        onboardError = "";
+        goal = { ...goal, currentWeight: cw, goalWeight: gw, goalDate, height: h, age: a, gender, maintenance, proteinTarget: calcProteinTarget(cw), onboarded: true };
+        persistGoal();
+        render();
+        return;
+      }
+    }
+
+    onboardError = errores.join(" ");
+    // Conservamos lo tipeado para que el error no obligue a cargar todo de nuevo.
+    onboardForm = { currentWeight: cw || "", goalWeight: gw || "", goalDate, height: h || "", age: a || "", gender };
     render();
   };
 
@@ -391,12 +457,52 @@ function todayISO() {
   // ---------- goal / settings ----------
   window.toggleSettings = function () { setTab("ajustes"); };
   window.updateGoalField = function (field, value, isNumber) {
-    goal = { ...goal, [field]: isNumber ? toNumber(value) : value };
+    // La altura se normaliza acá también: si la escribís en metros desde
+    // Ajustes, se guarda en centímetros igual que en la bienvenida.
+    const v = field === "height" ? alturaACm(value) : isNumber ? toNumber(value) : value;
+    goal = { ...goal, [field]: v };
     persistGoal();
+    ajustesMsg = null;
   };
   window.recalcMaintenance = function () {
-    goal = { ...goal, maintenance: calcMaintenance({ weight: goal.currentWeight, height: goal.height, age: goal.age, gender: goal.gender }) };
+    const datos = { peso: goal.currentWeight, altura: goal.height, edad: goal.age };
+    const errores = validarPersonales(datos);
+    if (errores.length) {
+      ajustesMsg = { tipo: "error", texto: errores.join(" ") };
+      render();
+      return;
+    }
+    const nuevo = calcMaintenance({ weight: goal.currentWeight, height: goal.height, age: goal.age, gender: goal.gender });
+    if (!gastoPlausible(nuevo)) {
+      ajustesMsg = { tipo: "error", texto: `Con esos datos el gasto base da ${nuevo} kcal/día, que no es posible. Revisá peso, altura y edad.` };
+      render();
+      return;
+    }
+    goal = { ...goal, maintenance: nuevo };
     persistGoal();
+
+    // Los días ya cargados congelan el gasto base del momento en que arrancaron
+    // (maintenanceSnapshot), a propósito, para que un ajuste no reescriba el
+    // historial hacia atrás. Pero un snapshot imposible no es historia que valga
+    // la pena conservar: reparamos SOLO esos y dejamos intactos los válidos.
+    let reparados = 0;
+    const metaNueva = { ...dayMeta };
+    Object.keys(metaNueva).forEach((fecha) => {
+      const m = metaNueva[fecha];
+      if (m && m.maintenanceSnapshot != null && !gastoPlausible(m.maintenanceSnapshot)) {
+        metaNueva[fecha] = { ...m, maintenanceSnapshot: nuevo };
+        reparados++;
+      }
+    });
+    if (reparados > 0) {
+      dayMeta = metaNueva;
+      persistDayMeta();
+    }
+
+    ajustesMsg = {
+      tipo: "ok",
+      texto: `Gasto base actualizado: ${nuevo} kcal/día.` + (reparados > 0 ? ` Además se corrigieron ${reparados} día${reparados !== 1 ? "s" : ""} del historial que había quedado con el valor viejo.` : ""),
+    };
     render();
   };
   window.recalcProteinTarget = function () {
@@ -752,8 +858,8 @@ function todayISO() {
             <div><label class="label">Peso objetivo (kg)</label><input id="ob-gw" type="text" inputmode="decimal" value="${esc(f.goalWeight)}"></div>
           </div>
           <div class="grid2" style="margin-bottom:12px;">
-            <div><label class="label">Altura (cm)</label><input id="ob-h" type="number" value="${esc(f.height)}"></div>
-            <div><label class="label">Edad</label><input id="ob-age" type="number" value="${esc(f.age)}"></div>
+            <div><label class="label">Altura (cm)</label><input id="ob-h" type="text" inputmode="decimal" placeholder="175" value="${esc(f.height)}"></div>
+            <div><label class="label">Edad</label><input id="ob-age" type="text" inputmode="numeric" placeholder="25" value="${esc(f.age)}"></div>
           </div>
           <div class="grid2" style="margin-bottom:12px;">
             <div><label class="label">Sexo</label>
@@ -767,6 +873,7 @@ function todayISO() {
           <div class="xs dim" style="background:var(--surfaceRaised);border-radius:8px;padding:10px;margin-bottom:14px;">
             No preguntamos tu nivel de actividad a propósito: el gasto base es tu metabolismo basal + un margen mínimo de movimiento diario (como si no entrenaras). El ejercicio que hagas cada día lo sumás vos mismo ese día puntual al dictarlo.
           </div>
+          ${onboardError ? `<div class="small" style="color:var(--rust);background:var(--surfaceRaised);border:1px solid var(--rust);border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.45;">${esc(onboardError)}</div>` : ""}
           <button class="btn-primary" onclick="completeOnboarding()">Calcular mi gasto base y empezar</button>
         </div>
       </div>`;
@@ -968,6 +1075,23 @@ function todayISO() {
       <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">Déficit</div>
       <button class="icon-btn" onclick="toggleTheme()" aria-label="Cambiar tema">${icon(goal.theme === "light" ? "moon" : "sun", "var(--textDim)", 21)}</button>
     </div>`;
+
+    // Reparación para quien ya tiene un gasto base imposible guardado de antes
+    // de que existieran las validaciones. No se arregla solo: el dato ya está
+    // en localStorage y nada lo vuelve a calcular salvo que la persona lo pida.
+    if (!gastoPlausible(goal.maintenance)) {
+      h += `<div class="card" style="border-color:var(--rust);">
+        <div class="row gap8" style="align-items:center;margin-bottom:8px;">
+          ${icon("tune", "var(--rust)", 17)}<div class="small" style="font-weight:700;">Revisá tus datos</div>
+        </div>
+        <div class="small dim" style="line-height:1.45;margin-bottom:14px;">
+          Tu gasto base figura en <span style="color:var(--text);font-weight:700;">${Math.round(goal.maintenance || 0).toLocaleString("es-ES")} kcal/día</span>, que no es un valor posible.
+          Suele pasar por cargar la altura en metros (1,75) en vez de centímetros (175), o el año de nacimiento en el campo de edad.
+          Mientras siga así, todos los balances te van a dar mal.
+        </div>
+        <button class="btn-primary" onclick="setTab('ajustes')">Corregir mis datos</button>
+      </div>`;
+    }
 
     // El titular es en kilos, no en kilocalorías: 77.000 kcal no se siente, 2,4 kg sí.
     h += `<div style="display:flex;align-items:baseline;gap:8px;">
@@ -1311,8 +1435,8 @@ function todayISO() {
     h += `<div class="card">
       <div class="title" style="margin-bottom:10px;">Datos personales</div>
       <div class="grid2" style="margin-bottom:12px;">
-        <div><label class="label">Altura (cm)</label><input type="number" value="${esc(goal.height || "")}" onchange="updateGoalField('height', this.value, true)"></div>
-        <div><label class="label">Edad</label><input type="number" value="${esc(goal.age || "")}" onchange="updateGoalField('age', this.value, true)"></div>
+        <div><label class="label">Altura (cm)</label><input type="text" inputmode="decimal" placeholder="175" value="${esc(goal.height || "")}" onchange="updateGoalField('height', this.value, true)"></div>
+        <div><label class="label">Edad</label><input type="text" inputmode="numeric" placeholder="25" value="${esc(goal.age || "")}" onchange="updateGoalField('age', this.value, true)"></div>
       </div>
       <div style="margin-bottom:12px;"><label class="label">Sexo</label>
         <select onchange="updateGoalField('gender', this.value, false)">
@@ -1322,6 +1446,7 @@ function todayISO() {
       </div>
       <div class="xs dim" style="margin-bottom:12px;">Este cálculo es siempre tu base sin ejercicio. El ejercicio se suma aparte, día a día, cuando lo dictás.</div>
       <button class="btn-secondary" onclick="recalcMaintenance()">Recalcular gasto base</button>
+      ${ajustesMsg ? `<div class="small" style="margin-top:12px;line-height:1.45;color:${ajustesMsg.tipo === "error" ? "var(--rust)" : "var(--sage)"};">${esc(ajustesMsg.texto)}</div>` : ""}
     </div>`;
 
     h += `<div class="card">
