@@ -12,10 +12,17 @@
 
 Vive en `mama/` y se publica sola con el resto: queda en `https://tu-sitio.netlify.app/mama/`. Usa la misma función y la misma clave, así que no hay que configurar nada más.
 
-- No hay peso, objetivo, déficit ni rachas: cada comida (por foto o dictado) muestra las calorías, de dónde vienen (proteínas, carbohidratos y grasas), y el detalle de azúcares, fibra, tipos de grasa, colesterol, 13 vitaminas y 10 minerales.
-- Las barras comparan contra lo recomendado por día para su edad y sexo (los pide al entrar; se cambian en Ajustes). Son las ingestas de referencia de las Academias Nacionales de EE.UU.
+- No hay objetivo de peso, déficit ni rachas: cada comida (por foto o dictado) muestra las calorías, de dónde vienen (proteínas, carbohidratos y grasas), y el detalle dividido en **Macronutrientes** (azul) y **Micronutrientes** (verde: 13 vitaminas y 10 minerales), como desplegables que se abren y se cierran.
+- Las barras comparan contra lo recomendado por día para su edad y sexo. Son las ingestas de referencia de las Academias Nacionales de EE.UU.
+- **Mis datos** (botón arriba a la derecha): peso, altura, cuánto se mueve, su salud y lo que le dijo el médico. Con eso:
+  - calcula las calorías que necesita por día (Mifflin-St Jeor por el factor de actividad);
+  - calcula la proteína por kilo (0,8 g/kg, 1 g/kg desde los 65);
+  - baja el máximo de sodio a 1.500 mg si tiene presión alta;
+  - marca "para vos" los nutrientes que importan según su salud;
+  - arma en Hoy la tarjeta **Para vos**, con el número de hoy de cada uno, el consejo de actividad de la OMS si se mueve poco y la indicación del médico.
+- Pensada para alguien a quien le cuesta el celular: botones grandes con texto, "Volver" visible en cada pantalla, la carga de una comida a pantalla completa (no se cierra por tocar afuera), y el botón de atrás del teléfono vuelve a Hoy en vez de cerrar la app.
 - El Historial tiene el promedio de la última semana, que es como conviene mirar vitaminas y minerales, y permite agregar comidas a un día pasado.
-- Arranca en modo claro y con letra más grande. Guarda en el celular con otro prefijo (`nutri_`), así que puede convivir con la app de déficit en el mismo teléfono.
+- Arranca en modo claro y con letra más grande, y la versión se ve abajo de cada pantalla. Guarda en el celular con otro prefijo (`nutri_`), así que puede convivir con la app de déficit en el mismo teléfono.
 - Para el iPhone: abrir `/mama/` en Safari → compartir → "Agregar a pantalla de inicio". Aparece como "Nutrientes".
 
 Biotina, yodo, cromo y molibdeno quedaron afuera a propósito: las tablas de composición casi no los informan, así que cualquier número sería inventado.

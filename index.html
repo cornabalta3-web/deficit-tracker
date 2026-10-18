@@ -123,6 +123,8 @@
   .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
   .goal-btn { width: 100%; text-align: left; display: block; color: var(--text); }
   .back-btn { display: flex; align-items: center; gap: 4px; margin-left: -8px; min-height: 44px; }
+  .dia-abierto .meal-card { background: var(--bg); }
+  .pie { text-align: center; font-size: 11px; color: var(--textDim); padding: 18px 0 4px; }
   .btn-danger { background: transparent; border: 1px solid var(--rust); color: var(--rust); border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; }
 </style>
 <!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
@@ -1076,6 +1078,13 @@ function todayISO() {
     </div>`;
   }
 
+  // La versión a la vista, abajo de Hoy y del Historial: para saber si ya
+  // llegó un cambio sin tener que entrar a Ajustes.
+  function pieVersion() {
+    const v = (APP_VERSION.match(/^v(\d+)/) || [])[1] || APP_VERSION;
+    return `<div class="pie">Déficit · versión ${v}</div>`;
+  }
+
   // Encabezado de las pantallas que no están en la barra: vuelven a Hoy.
   function topbarVolver(titulo, derecha) {
     return `<div class="topbar">
@@ -1287,9 +1296,9 @@ function todayISO() {
     </div>`;
   }
 
-  // Una comida de Hoy: cerrada muestra nota, macros, kcal y puntaje; tocada
-  // se abre con los macros, los nutrientes, Editar y Borrar.
-  function comidaHoyHTML(m) {
+  // Una comida (de Hoy o del Historial): cerrada muestra nota, macros, kcal y
+  // puntaje; tocada se abre con los macros, los nutrientes, Editar y Borrar.
+  function comidaCardHTML(m) {
     if (editingMealId === m.id) return formEditarComida(m);
     const abierta = openMealDetail === m.id;
     const borrando = confirmDeleteMealId === m.id;
@@ -1446,7 +1455,7 @@ function todayISO() {
         <button class="btn-primary" onclick="openCapture()">Cargar la primera comida</button>
       </div>`;
     } else {
-      h += `<div class="col gap8">${comidas.map(comidaHoyHTML).join("")}</div>`;
+      h += `<div class="col gap8">${comidas.map(comidaCardHTML).join("")}</div>`;
     }
 
     if (showCloseDayConfirm && c.todayStats) {
@@ -1505,7 +1514,7 @@ function todayISO() {
       <div class="row small" style="justify-content:space-between;align-items:center;color:var(--amber);"><span>Ver progreso y pesajes</span>${icon("chevR", "var(--amber)", 16)}</div>
     </button>`;
 
-    return h + `</div>`;
+    return h + pieVersion() + `</div>`;
   }
 
   // ---------- PANTALLA: HISTORIAL ----------
@@ -1537,7 +1546,7 @@ function todayISO() {
         </div>`;
 
       if (expandedDays[day.date]) {
-        h += `<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;">`;
+        h += `<div class="dia-abierto" style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;">`;
 
         if (editingDayMeta === day.date) {
           h += `<div style="background:var(--bg);border-radius:8px;padding:12px;border:1px solid var(--amber);">
@@ -1558,27 +1567,9 @@ function todayISO() {
           </div>`;
         }
 
-        day.meals.forEach((m) => {
-          if (editingMealId === m.id) {
-            h += formEditarComida(m);
-          } else {
-            // Tocar el texto de la comida despliega sus nutrientes, si los tiene.
-            const abierta = openMealDetail === m.id && m.nutrientes;
-            h += `<div style="background:var(--bg);border-radius:8px;padding:8px 10px;">
-              <div class="row" style="align-items:center;justify-content:space-between;gap:8px;">
-                <div style="flex:1;min-width:0;${m.nutrientes ? "cursor:pointer;" : ""}" ${m.nutrientes ? `onclick="toggleMealDetail('${m.id}')"` : ""}>
-                  <div class="small dim" style="font-style:italic;">${esc(m.note)}</div>
-                  <div class="xs dim">${kcal(m.consumed)} kcal · ${macroInline(m.protein, m.carbs, m.fat)}${m.nutrientes ? ` · <span style="color:var(--meta);">${abierta ? "ocultar" : "nutrientes"}</span>` : ""}</div>
-                  ${m.score != null ? `<div class="xs" style="margin-top:4px;"><span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:1px 8px;font-weight:700;">${m.score}/10</span> <span class="dim">${esc(m.comment || "")}</span></div>` : ""}
-                </div>
-                <button class="btn-ghost" onclick="startEditMeal('${m.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
-                <button class="btn-ghost" onclick="askDeleteMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
-              </div>
-              ${abierta ? `<div style="margin-top:4px;">${N.seccionesPlanas(nutrientesDeComida(m), null, { compacta: true })}</div>` : ""}
-              ${confirmDeleteMealId === m.id ? `<div style="margin-top:10px;">${confirmarBorrarHTML(m)}</div>` : ""}
-            </div>`;
-          }
-        });
+        // Cada comida es la misma tarjeta tocable de Hoy: se abre con sus
+        // nutrientes, Editar y Borrar (con confirmación).
+        h += `<div class="col gap8">${day.meals.map(comidaCardHTML).join("")}</div>`;
 
         const nd = nutrientesDeComidas(day.meals);
         h += `<div style="background:var(--bg);border-radius:8px;padding:12px 10px;">
@@ -1593,7 +1584,7 @@ function todayISO() {
       h += `</div>`;
     });
 
-    return h + `</div></div>`;
+    return h + `</div>` + pieVersion() + `</div>`;
   }
 
   // ---------- PANTALLA: PROGRESO ----------
