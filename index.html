@@ -16,11 +16,13 @@
     --bg: #14181C; --surface: #1C2227; --surfaceRaised: #242B31; --line: #333B42;
     --text: #F2EFE9; --textDim: #9AA3AA; --amber: #E8A33D; --sage: #6FA98A; --rust: #C1584B;
     --protein: #6C93E8; --carbs: #D9823D; --fat: #B589E0;
+    --meta: #5E9FC4; --cheat: #D97BA6;
   }
   [data-theme="light"] {
     --bg: #F7F5F0; --surface: #FFFFFF; --surfaceRaised: #EFEBE2; --line: #DDD6C8;
     --text: #23262B; --textDim: #6D7278; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
     --protein: #3A5FC4; --carbs: #B5631F; --fat: #8354B8;
+    --meta: #2F7398; --cheat: #B2457A;
   }
   * { box-sizing: border-box; }
   body, #root { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
@@ -99,7 +101,19 @@
     max-height: 88vh; overflow-y: auto;
   }
   .grab { width: 38px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 18px; }
+
+  /* ---------- v15: día primero, nutrientes, días pasados y día cheat ---------- */
+  .section-title { font-size: 13px; font-weight: 700; color: var(--textDim); text-transform: uppercase; letter-spacing: .6px; margin: 26px 0 10px; }
+  .day-num { font-size: 46px; font-weight: 700; line-height: 1; letter-spacing: -1px; margin-top: 4px; }
+  .divider { height: 1px; background: var(--line); margin: 16px 0; }
+  .chip-btn { cursor: pointer; }
+  .chip.cheat-on { border-color: var(--cheat); color: var(--cheat); }
+  .pill-cheat { color: var(--cheat); border: 1px solid var(--cheat); border-radius: 999px; padding: 0 7px; font-size: 10px; font-weight: 700; margin-left: 4px; vertical-align: 1px; }
+  .mini-btn { border: 1px dashed var(--line); color: var(--textDim); border-radius: 8px; padding: 7px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
+  .link-btn { font-size: 12px; color: var(--amber); }
 </style>
+<!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
+<script src="nutrientes.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -124,8 +138,9 @@
     },
   };
 
+  const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v14-html · validación de peso, altura y edad";
+  const APP_VERSION = "v15-html · nutrientes completos, días pasados y día cheat";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -160,6 +175,12 @@
   let showCloseDayConfirm = false;
   let justClosedCelebration = false;
   let showResetConfirm = false;
+  let captureDate = null;          // día al que va la comida que se está cargando (null = hoy)
+  let showParsedDetail = false;    // vitaminas y minerales en el resultado del análisis
+  let showDayNutrients = false;    // ídem en la tarjeta de hoy
+  let showAvgNutrients = false;    // ídem en el promedio de Progreso
+  let nutrDaysOpen = {};           // ídem por día en Historial
+  let openMealDetail = null;       // comida del Historial con su detalle a la vista
 
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function todayISO() {
@@ -281,8 +302,17 @@ function todayISO() {
     const surplus = Math.abs(net);
     return { text: "+" + Math.round(surplus).toLocaleString("es-ES") + " kcal", color: surplus <= threshold ? "var(--amber)" : "var(--rust)" };
   }
+  // Un día cheat es un permiso que te diste, no un error: el número es el
+  // mismo, pero va con su color en vez del rojo de alarma.
+  function balanceDe(net, cheat) {
+    const b = formatBalance(net);
+    return cheat ? { text: b.text, color: "var(--cheat)" } : b;
+  }
   function dayCloseMessage(day) {
     const net = day.net;
+    if (day.cheat) {
+      return `Día cheat cerrado: ${net >= 0 ? "-" : "+"}${Math.round(Math.abs(net)).toLocaleString("es-ES")} kcal. No corta tu racha, y las calorías igual cuentan para el total. Mañana seguimos.`;
+    }
     if (net >= 0) {
       const kg = net / KCAL_PER_KG;
       return `&#127881; ¡Felicitaciones, seguís así! Hoy restaste ${Math.round(net).toLocaleString("es-ES")} kcal (&asymp; ${kg.toFixed(2)} kg) de tu objetivo.`;
@@ -304,12 +334,17 @@ function todayISO() {
   }
 
   // ---------- racha de déficit e insignias ----------
+  // Un día cheat ni suma ni corta: la racha lo saltea, siempre que los días
+  // sigan siendo consecutivos. Las calorías de ese día sí cuentan en el total
+  // de déficit, porque al cuerpo no le importa cómo lo llamaste.
   function computeDeficitStreak(settledDescending) {
     let streak = 0, prevDate = null;
     for (const d of settledDescending) {
+      if (prevDate !== null && addDaysISO(prevDate, -1) !== d.date) break;
+      prevDate = d.date;
+      if (d.cheat) continue;
       if (d.net < 0) break;
-      if (prevDate === null) { streak = 1; prevDate = d.date; continue; }
-      if (addDaysISO(prevDate, -1) === d.date) { streak++; prevDate = d.date; } else break;
+      streak++;
     }
     return streak;
   }
@@ -345,10 +380,62 @@ function todayISO() {
           exercise: meta.exerciseKcal || 0,
           net: gasto - day.consumed,
           closed: !!meta.closed,
+          cheat: !!meta.cheat,
           meals: day.meals.slice().sort((a, b) => a.createdAt - b.createdAt),
         };
       })
       .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
+
+  // ---------- micro y macronutrientes (v15) ----------
+  //
+  // Cada comida nueva trae `nutrientes`: el detalle (azúcares, fibra, tipos de
+  // grasa, vitaminas, minerales). Las kcal y los tres macros de siempre siguen
+  // en consumed/protein/carbs/fat, que es lo que editás desde Historial, así
+  // que el objeto completo se arma al vuelo y nunca queda desfasado.
+  function refsNutrientes() {
+    const r = N.referencias(goal.age, goal.gender === "female" ? "femenino" : "masculino");
+    // La proteína de esta app es tu meta para cuidar músculo en déficit
+    // (Ajustes), no el mínimo general de 46/56 g.
+    r.proteinas_g = goal.proteinTarget || calcProteinTarget(goal.currentWeight);
+    return r;
+  }
+  // Las comidas cargadas antes de v15 (y los días completados solos) no tienen
+  // detalle: sus vitaminas cuentan como 0, y se avisa cuántas son.
+  function nutrientesDeComidas(lista) {
+    const conDetalle = lista.filter((m) => m.nutrientes);
+    const n = N.sumar(conDetalle.map((m) => m.nutrientes));
+    n.kcal = lista.reduce((s, m) => s + m.consumed, 0);
+    n.proteinas_g = lista.reduce((s, m) => s + m.protein, 0);
+    n.carbohidratos_g = lista.reduce((s, m) => s + m.carbs, 0);
+    n.grasas_g = lista.reduce((s, m) => s + m.fat, 0);
+    return { n, sinDetalle: lista.length - conDetalle.length };
+  }
+  function nutrientesDeComida(m) {
+    return { ...N.limpiar(m.nutrientes), kcal: m.consumed, proteinas_g: m.protein, carbohidratos_g: m.carbs, grasas_g: m.fat };
+  }
+
+  // Bloque de nutrientes plegable: cerrado muestra los cuatro que más importan
+  // en un déficit (fibra que llena, azúcares, sodio que retiene líquido y
+  // grasas saturadas); abierto, la tabla completa contra lo recomendado.
+  function bloqueNutrientes(n, sinDetalle, abierto, accion) {
+    const refs = refsNutrientes();
+    const chip = (k, nombre) => {
+      const d = N.NUTRIENTES.find((x) => x.k === k);
+      return `<span class="chip dim">${nombre} <span style="color:var(--text);font-weight:700;">${N.fmt(n[k])} ${N.unidad(d.u)}</span></span>`;
+    };
+    let h = `<div class="row gap8" style="flex-wrap:wrap;">
+      ${chip("fibra_g", "Fibra")}${chip("azucares_g", "Azúcares")}${chip("sodio_mg", "Sodio")}${chip("grasas_saturadas_g", "Saturadas")}
+    </div>`;
+    if (sinDetalle > 0) {
+      h += `<div class="xs dim" style="margin-top:10px;">${sinDetalle} comida${sinDetalle !== 1 ? "s" : ""} sin detalle (cargada${sinDetalle !== 1 ? "s" : ""} antes de esta versión o completada${sinDetalle !== 1 ? "s" : ""} sola${sinDetalle !== 1 ? "s" : ""}): las vitaminas y minerales pueden dar de menos.</div>`;
+    }
+    h += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="${accion}">${abierto ? "Ocultar" : "Ver"} vitaminas y minerales</button>`;
+    if (abierto) {
+      h += N.gruposHTML(n, refs).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("");
+      h += `<div class="xs dim" style="margin-top:12px;line-height:1.45;">${esc(N.notaReferencias(goal.age, goal.gender === "female" ? "femenino" : "masculino"))} La proteína se compara con tu meta de Ajustes.</div>`;
+    }
+    return h;
   }
 
   // ---------- storage ----------
@@ -430,8 +517,11 @@ function todayISO() {
     window.scrollTo(0, 0);
     render();
   };
-  window.openCapture = function () {
+  // Con fecha, la comida va a ese día (el botón "Agregar comida" de cada día del
+  // Historial); sin fecha, a hoy. Igual se puede cambiar antes de guardar.
+  window.openCapture = function (date) {
     showCapture = true;
+    captureDate = /^\d{4}-\d{2}-\d{2}$/.test(date || "") ? date : null;
     errorMsg = "";
     render();
     // Foco diferido: el textarea recién existe después de redibujar.
@@ -451,6 +541,21 @@ function todayISO() {
   };
   window.dismissCalibration = function (sugerido) {
     calibrationDismissed = sugerido;
+    render();
+  };
+  window.toggleParsedDetail = function () { showParsedDetail = !showParsedDetail; render(); };
+  // Sin render: solo recordarla, así abrir el detalle no te la vuelve a hoy.
+  window.setCaptureDate = function (v) { captureDate = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null; };
+  window.toggleDayNutrients = function () { showDayNutrients = !showDayNutrients; render(); };
+  window.toggleAvgNutrients = function () { showAvgNutrients = !showAvgNutrients; render(); };
+  window.toggleNutrDay = function (date) { nutrDaysOpen = { ...nutrDaysOpen, [date]: !nutrDaysOpen[date] }; render(); };
+  window.toggleMealDetail = function (id) { openMealDetail = openMealDetail === id ? null : id; render(); };
+
+  // ---------- día cheat ----------
+  window.toggleCheat = function (date) {
+    const existing = dayMeta[date] || { totalExpenditure: null, exerciseKcal: 0 };
+    dayMeta = { ...dayMeta, [date]: { ...existing, cheat: !existing.cheat } };
+    persistDayMeta();
     render();
   };
 
@@ -671,7 +776,11 @@ function todayISO() {
         note: obj.summary || dictation.trim().slice(0, 120) || "Comida analizada por foto",
         nutritionScore: obj.nutrition_score != null ? Math.max(1, Math.min(10, Math.round(Number(obj.nutrition_score)))) : null,
         nutritionComment: obj.nutrition_comment || "",
+        // Si la función todavía es la vieja (sin redeploy), no viene: la
+        // comida se guarda igual, sin detalle.
+        detalle: obj.detalle ? N.limpiar(obj.detalle, N.CLAVES_DETALLE) : null,
       };
+      showParsedDetail = false;
     } catch (e) {
       console.error(e);
       // Antes todos los fallos mostraban el mismo mensaje, así que un problema
@@ -695,6 +804,7 @@ function todayISO() {
       dictado_muy_largo: "El dictado es muy largo. Contá solo esta comida.",
       sin_contenido: "Escribí qué comiste o adjuntá una foto.",
       rechazado: "No pude analizar esa descripción. Probá contarlo con otras palabras.",
+      respuesta_cortada: "El análisis quedó a medias. Probá de nuevo.",
       sin_conexion: "No hay conexión con el servidor. Revisá tu internet y reintentá.",
       // Dos causas distintas: antes compartían mensaje y no se podía saber cuál era.
       token_invalido: "Falta el token de la app. Si activaste APP_SHARED_TOKEN en Netlify, borrá esa variable: el frontend todavía no lo manda.",
@@ -708,8 +818,13 @@ function todayISO() {
 
   window.confirmSave = function () {
     if (!parsed) return;
-    const date = todayISO();
+    // La fecha sale del campo del resultado: hoy por defecto, o el día desde el
+    // que abriste la carga. Así se completa un día pasado sin tocar el reloj.
+    const input = document.getElementById("capture-date");
+    const date = input && /^\d{4}-\d{2}-\d{2}$/.test(input.value) ? input.value : todayISO();
+    if (date > todayISO()) { errorMsg = "Esa fecha todavía no llegó."; render(); return; }
     const meal = { id: uid(), date, consumed: parsed.consumed, protein: parsed.protein, carbs: parsed.carbs, fat: parsed.fat, note: parsed.note, score: parsed.nutritionScore, comment: parsed.nutritionComment, createdAt: Date.now() };
+    if (parsed.detalle) meal.nutrientes = parsed.detalle;
     meals = [meal, ...meals];
     persistMeals();
     const existing = dayMeta[date] || { totalExpenditure: null, exerciseKcal: 0 };
@@ -725,7 +840,10 @@ function todayISO() {
     parsed = null; photo = null;
     dictationDraft = "";
     showCapture = false;
-    activeTab = "hoy";
+    captureDate = null;
+    errorMsg = "";
+    // Te deja mirando el día donde quedó la comida.
+    activeTab = date === todayISO() ? "hoy" : "historial";
     expandedDays = { ...expandedDays, [date]: true };
     render();
   };
@@ -898,6 +1016,7 @@ function todayISO() {
     trash: '<path d="M4 7h16"></path><path d="M9 7V5h6v2"></path><path d="M6 7l1 13h10l1-13"></path>',
     check: '<path d="M4 12.5 9.5 18 20 6.5"></path>',
     tune: '<path d="M12 3v3"></path><path d="M12 18v3"></path><circle cx="12" cy="12" r="3.4"></circle><path d="M4.5 12H3"></path><path d="M21 12h-1.5"></path>',
+    cheat: '<path d="M3.5 7.5C9 4.5 15 4.5 20.5 7.5L12 21z"></path><circle cx="10.2" cy="10" r="1"></circle><circle cx="14" cy="12.6" r="1"></circle><circle cx="11.4" cy="15.6" r="1"></circle>',
   };
   function icon(name, color, size, sw) {
     return `<svg width="${size || 21}" height="${size || 21}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
@@ -1069,10 +1188,19 @@ function todayISO() {
   function screenHoy(c) {
     const kgMostrados = Math.max(0, c.kgLost);
     const totalKg = Math.max(0, goal.currentWeight - goal.goalWeight);
+    const cheatHoy = !!(dayMeta[c.todayStr] && dayMeta[c.todayStr].cheat);
+    const fechaHoy = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
     let h = `<div class="screen">`;
 
+    // Jerarquía (v15): arriba el día que estás viviendo —balance, macros,
+    // comidas y nutrientes—, que es lo que mirás y tocás varias veces por día.
+    // Abajo el objetivo de largo plazo, que se mueve de a poco. Antes el
+    // titular eran los kilos del objetivo y el día quedaba a media pantalla.
     h += `<div class="topbar">
-      <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;">Déficit</div>
+      <div>
+        <div style="font-size:26px;font-weight:700;line-height:1.1;">Hoy</div>
+        <div class="small dim" style="margin-top:2px;">${esc(fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1))}</div>
+      </div>
       <button class="icon-btn" onclick="toggleTheme()" aria-label="Cambiar tema">${icon(goal.theme === "light" ? "moon" : "sun", "var(--textDim)", 21)}</button>
     </div>`;
 
@@ -1093,36 +1221,12 @@ function todayISO() {
       </div>`;
     }
 
-    // El titular es en kilos, no en kilocalorías: 77.000 kcal no se siente, 2,4 kg sí.
-    h += `<div style="display:flex;align-items:baseline;gap:8px;">
-      <div class="hero-num">${kgMostrados.toFixed(1).replace(".", ",")}</div>
-      <div style="font-size:20px;font-weight:700;color:var(--textDim);">kg menos</div>
-    </div>
-    <div class="small dim" style="margin-top:6px;">de ${totalKg.toFixed(0)} kg · faltan ${c.daysLeft} día${c.daysLeft !== 1 ? "s" : ""}</div>`;
-
-    h += `<div class="track" style="margin-top:14px;"><i style="width:${c.pct.toFixed(1)}%;background:var(--amber);"></i></div>`;
-
-    // El restante en kcal no se pierde al cambiar el titular: queda acá.
-    h += `<div class="row" style="justify-content:space-between;align-items:baseline;margin-top:9px;">
-      <div class="small dim">${c.remaining > 0 ? `Faltan <span style="color:var(--text);font-weight:700;">${Math.round(c.remaining).toLocaleString("es-ES")}</span> kcal` : `<span style="color:var(--sage);font-weight:700;">¡Objetivo cumplido!</span>`}</div>
-      <div class="small dim">${c.pct.toFixed(0)}%</div>
-    </div>`;
-
-    h += `<div class="row gap8" style="margin-top:14px;flex-wrap:wrap;">`;
-    if (c.streak > 0) h += `<span class="chip">${icon("flame", "var(--amber)", 13)} ${c.streak} día${c.streak !== 1 ? "s" : ""} seguido${c.streak !== 1 ? "s" : ""}</span>`;
-    if (c.neededDailyAvg > 0) h += `<span class="chip dim">Necesitás -${c.neededDailyAvg.toFixed(0)}/día</span>`;
-    h += `</div>`;
-
-    if (c.badges.length) {
-      h += `<div class="row gap8" style="flex-wrap:wrap;margin-top:10px;">${c.badges.map((b) => `<span class="badge-pill">${b.icon} ${esc(b.label)}</span>`).join("")}</div>`;
-    }
-
     if (c.showGapBanner) {
       const missingJson = esc(JSON.stringify(c.missingDates)).replace(/"/g, "&quot;");
       const avgJson = esc(JSON.stringify(c.avgForFill)).replace(/"/g, "&quot;");
-      h += `<div class="card" style="border-color:var(--amber);margin-top:20px;">
+      h += `<div class="card" style="border-color:var(--amber);">
         <div class="title" style="margin-bottom:6px;">Te faltan ${c.missingDates.length} día${c.missingDates.length !== 1 ? "s" : ""} sin registrar</div>
-        <div class="small dim" style="margin-bottom:14px;">Del ${formatDate(c.missingDates[0])} al ${formatDate(c.missingDates[c.missingDates.length - 1])}. ¿Qué hacemos con esos días para no perder la cuenta?</div>
+        <div class="small dim" style="margin-bottom:14px;">Del ${formatDate(c.missingDates[0])} al ${formatDate(c.missingDates[c.missingDates.length - 1])}. ¿Qué hacemos con esos días para no perder la cuenta? Si te acordás qué comiste, también podés cargarlo de verdad: tocá + y cambiá la fecha antes de guardar.</div>
         <div class="row gap10" style="flex-wrap:wrap;">
           <button class="btn-primary" onclick='fillGapDays("neutral", "${missingJson}", "${avgJson}")'>Completar como neutros</button>
           <button class="btn-secondary" ${c.daysCount === 0 ? "disabled" : ""} onclick='fillGapDays("average", "${missingJson}", "${avgJson}")'>Usar mi promedio</button>
@@ -1131,43 +1235,49 @@ function todayISO() {
       </div>`;
     }
 
-    // Tarjeta del día
+    // ---- 1. El día ----
     const consumidoHoy = c.todayStats ? c.todayStats.consumed : 0;
     const gastoHoy = c.todayStats ? c.todayStats.gasto : goal.maintenance;
     const netoHoy = c.todayStats ? c.todayStats.net : 0;
     const pctDia = gastoHoy > 0 ? (consumidoHoy / gastoHoy) * 100 : 0;
-    const bal = formatBalance(netoHoy);
+    const bal = balanceDe(netoHoy, cheatHoy);
     const pctProt = c.proteinTarget > 0 ? Math.min(100, (c.todayProtein / c.proteinTarget) * 100) : 0;
+    const colorAnillo = cheatHoy ? "var(--cheat)" : netoHoy >= 0 ? "var(--sage)" : "var(--rust)";
 
-    h += `<div class="card" style="margin-top:20px;">
+    h += `<div class="card" style="${cheatHoy ? "border-color:var(--cheat);" : ""}">
       <div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;">
         <div style="min-width:0;">
-          <div class="stat-label" style="margin-bottom:4px;">${netoHoy >= 0 ? "Déficit de hoy" : "Superávit de hoy"}</div>
-          <div style="font-size:34px;font-weight:700;line-height:1;color:${bal.color};">${bal.text.replace(" kcal", "")}</div>
-          <div class="small dim" style="margin-top:4px;">${Math.round(consumidoHoy).toLocaleString("es-ES")} comidas · ${Math.round(gastoHoy).toLocaleString("es-ES")} gastadas${c.todayStats && c.todayStats.usedAppTotal ? " (app)" : ""}</div>
+          <div class="stat-label">${cheatHoy ? "Día cheat" : netoHoy >= 0 ? "Déficit de hoy" : "Superávit de hoy"}</div>
+          <div class="day-num" style="color:${bal.color};">${bal.text.replace(" kcal", "")}</div>
+          <div class="small dim" style="margin-top:6px;">${Math.round(consumidoHoy).toLocaleString("es-ES")} comidas · ${Math.round(gastoHoy).toLocaleString("es-ES")} gastadas${c.todayStats && c.todayStats.usedAppTotal ? " (app)" : ""}</div>
         </div>
-        ${ringSVG(pctDia, netoHoy >= 0 ? "var(--sage)" : "var(--rust)", pctDia.toFixed(0) + "%", "del gasto")}
+        ${ringSVG(pctDia, colorAnillo, pctDia.toFixed(0) + "%", "del gasto")}
       </div>
 
-      <div style="height:1px;background:var(--line);margin:16px 0;"></div>
+      <div class="divider"></div>
 
       <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:8px;">
         <div class="small" style="font-weight:700;">Proteína</div>
         <div class="small dim"><span style="color:var(--protein);font-weight:700;">${c.todayProtein.toFixed(0)}</span> de ${c.proteinTarget} g</div>
       </div>
       <div class="track"><i style="width:${pctProt.toFixed(0)}%;background:var(--protein);"></i></div>
-
-      <div class="row gap20" style="margin-top:14px;flex-wrap:wrap;">
+      <div class="row gap20" style="margin-top:12px;flex-wrap:wrap;">
         <span class="small dim"><span class="sq" style="background:var(--carbs);"></span>${(c.todayStats ? c.todayStats.carbs : 0).toFixed(0)} g carbos</span>
         <span class="small dim"><span class="sq" style="background:var(--fat);"></span>${(c.todayStats ? c.todayStats.fat : 0).toFixed(0)} g grasas</span>
+      </div>
+
+      <div class="row gap8" style="margin-top:16px;align-items:center;flex-wrap:wrap;">
+        <button class="chip chip-btn ${cheatHoy ? "cheat-on" : "dim"}" onclick="toggleCheat('${c.todayStr}')">${icon("cheat", cheatHoy ? "var(--cheat)" : "var(--textDim)", 14)} ${cheatHoy ? "Día cheat · quitar" : "Marcar día cheat"}</button>
+        ${cheatHoy ? `<span class="xs dim">No corta la racha; las calorías cuentan igual.</span>` : ""}
       </div>
     </div>`;
 
     // Día cerrado
     if (c.todayClosed) {
       const msg = c.todayStats ? dayCloseMessage(c.todayStats) : "";
-      h += `<div class="card ${justClosedCelebration && c.todayStats && c.todayStats.net >= 0 ? "celebrate" : ""}" style="position:relative;overflow:hidden;border-color:var(--sage);">
-        ${justClosedCelebration && c.todayStats && c.todayStats.net >= 0 ? confettiMarkup() : ""}
+      const festejo = justClosedCelebration && c.todayStats && (c.todayStats.net >= 0 || c.todayStats.cheat);
+      h += `<div class="card ${festejo ? "celebrate" : ""}" style="position:relative;overflow:hidden;border-color:var(--sage);">
+        ${festejo ? confettiMarkup() : ""}
         <div class="row gap8" style="align-items:center;margin-bottom:10px;">${icon("check", "var(--sage)", 17)}<span class="small" style="font-weight:700;">Ya cerraste el día de hoy</span></div>
         <div class="small" style="margin-bottom:14px;">${msg}</div>
         <button class="btn-secondary" onclick="reopenDay('${c.todayStr}')">Reabrir para agregar algo más</button>
@@ -1177,9 +1287,9 @@ function todayISO() {
 
     // Comidas de hoy
     const comidas = c.todayStats ? c.todayStats.meals : [];
-    h += `<div class="row" style="justify-content:space-between;align-items:baseline;margin:22px 0 10px;">
-      <div class="title">${comidas.length} comida${comidas.length !== 1 ? "s" : ""} hoy</div>
-      ${comidas.length && !c.todayClosed ? `<button style="font-size:12px;color:var(--amber);" onclick="openCloseDayConfirm()">Cerrar día</button>` : ""}
+    h += `<div class="row" style="justify-content:space-between;align-items:baseline;margin:6px 0 10px;">
+      <div class="title">${comidas.length ? `${comidas.length} comida${comidas.length !== 1 ? "s" : ""} hoy` : "Comidas de hoy"}</div>
+      ${comidas.length && !c.todayClosed ? `<button class="link-btn" onclick="openCloseDayConfirm()">Cerrar día</button>` : ""}
     </div>`;
 
     if (!comidas.length) {
@@ -1222,6 +1332,44 @@ function todayISO() {
       </div>`;
     }
 
+    // Nutrientes del día: solo si hay algo cargado, plegado por defecto.
+    if (comidas.length) {
+      const nd = nutrientesDeComidas(comidas);
+      h += `<div class="card" style="margin-top:14px;">
+        <div class="title" style="margin-bottom:12px;">Nutrientes de hoy</div>
+        ${bloqueNutrientes(nd.n, nd.sinDetalle, showDayNutrients, "toggleDayNutrients()")}
+      </div>`;
+    }
+
+    // ---- 2. El objetivo ----
+    // El restante en kcal y el % siguen acá; los kilos pasan a ser el número
+    // de esta tarjeta en vez del titular de la pantalla.
+    h += `<div class="section-title">Tu objetivo</div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline;">
+        <div class="row" style="align-items:baseline;gap:6px;">
+          <div style="font-size:30px;font-weight:700;line-height:1;">${kgMostrados.toFixed(1).replace(".", ",")}</div>
+          <div class="small dim" style="font-weight:700;">de ${totalKg.toFixed(0)} kg menos</div>
+        </div>
+        <div class="small dim">${c.pct.toFixed(0)}%</div>
+      </div>
+      <div class="track" style="margin-top:12px;"><i style="width:${c.pct.toFixed(1)}%;background:var(--amber);"></i></div>
+      <div class="row" style="justify-content:space-between;align-items:baseline;margin-top:9px;">
+        <div class="small dim">${c.remaining > 0 ? `Faltan <span style="color:var(--text);font-weight:700;">${Math.round(c.remaining).toLocaleString("es-ES")}</span> kcal` : `<span style="color:var(--sage);font-weight:700;">¡Objetivo cumplido!</span>`}</div>
+        <div class="small dim">faltan ${c.daysLeft} día${c.daysLeft !== 1 ? "s" : ""}</div>
+      </div>`;
+
+    if (c.streak > 0 || c.neededDailyAvg > 0) {
+      h += `<div class="row gap8" style="margin-top:14px;flex-wrap:wrap;">`;
+      if (c.streak > 0) h += `<span class="chip">${icon("flame", "var(--amber)", 13)} ${c.streak} día${c.streak !== 1 ? "s" : ""} seguido${c.streak !== 1 ? "s" : ""}</span>`;
+      if (c.neededDailyAvg > 0) h += `<span class="chip dim">Necesitás -${c.neededDailyAvg.toFixed(0)}/día</span>`;
+      h += `</div>`;
+    }
+    if (c.badges.length) {
+      h += `<div class="row gap8" style="flex-wrap:wrap;margin-top:10px;">${c.badges.map((b) => `<span class="badge-pill">${b.icon} ${esc(b.label)}</span>`).join("")}</div>`;
+    }
+    h += `</div>`;
+
     return h + `</div>`;
   }
 
@@ -1231,6 +1379,10 @@ function todayISO() {
       <div class="topbar"><div style="font-size:22px;font-weight:700;">Historial</div>
       <span class="small dim">${c.dayStats.length} día${c.dayStats.length !== 1 ? "s" : ""}</span></div>`;
 
+    // Para un día que no aparece (no tiene ni una comida): la carga deja elegir
+    // la fecha antes de guardar.
+    h += `<div class="xs dim" style="margin:-4px 0 14px;">¿Te faltó un día entero? Tocá <b>+</b>, cargá la comida y cambiá la fecha antes de guardar.</div>`;
+
     if (c.dayStats.length === 0) {
       h += `<div class="card" style="text-align:center;padding:32px 20px;"><div class="small dim">Todavía no registraste ninguna comida.</div></div>`;
       return h + `</div>`;
@@ -1238,11 +1390,11 @@ function todayISO() {
 
     h += `<div class="col gap10">`;
     c.dayStats.forEach((day) => {
-      const bal = formatBalance(day.net);
-      h += `<div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;">
+      const bal = balanceDe(day.net, day.cheat);
+      h += `<div style="background:var(--surface);border:1px solid ${day.cheat ? "var(--cheat)" : "var(--line)"};border-radius:12px;overflow:hidden;">
         <div class="row" style="align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer;gap:8px;" onclick="toggleDayExpand('${day.date}')">
           <div style="flex:1;min-width:0;">
-            <div class="small" style="font-weight:700;">${formatDate(day.date)} <span class="dim" style="font-weight:400;">· ${day.meals.length} comida${day.meals.length !== 1 ? "s" : ""}</span>${day.closed ? ` <span style="color:var(--sage);font-weight:700;font-size:11px;">✓</span>` : ""}</div>
+            <div class="small" style="font-weight:700;">${formatDate(day.date)} <span class="dim" style="font-weight:400;">· ${day.meals.length} comida${day.meals.length !== 1 ? "s" : ""}</span>${day.closed ? ` <span style="color:var(--sage);font-weight:700;font-size:11px;">✓</span>` : ""}${day.cheat ? `<span class="pill-cheat">CHEAT</span>` : ""}</div>
             <div class="xs dim">${day.consumed.toFixed(0)} kcal · gasto ${day.gasto.toFixed(0)}${day.usedAppTotal ? " (app)" : ""} · ${macroInline(day.protein, day.carbs, day.fat)}</div>
           </div>
           <div style="font-weight:700;font-size:15px;color:${bal.color};flex-shrink:0;">${bal.text}</div>
@@ -1264,7 +1416,11 @@ function todayISO() {
             </div>
           </div>`;
         } else {
-          h += `<button onclick="startEditDayMeta('${day.date}')" style="border:1px dashed var(--line);color:var(--textDim);border-radius:8px;padding:7px 10px;font-size:11px;align-self:flex-start;">Editar gasto del día</button>`;
+          h += `<div class="row gap8" style="flex-wrap:wrap;">
+            <button class="mini-btn" onclick="openCapture('${day.date}')">${icon("plus", "var(--textDim)", 12, 2)} Agregar comida</button>
+            <button class="mini-btn" onclick="startEditDayMeta('${day.date}')">Editar gasto del día</button>
+            <button class="mini-btn" style="${day.cheat ? "border-color:var(--cheat);color:var(--cheat);" : ""}" onclick="toggleCheat('${day.date}')">${icon("cheat", day.cheat ? "var(--cheat)" : "var(--textDim)", 12)} ${day.cheat ? "Quitar día cheat" : "Día cheat"}</button>
+          </div>`;
         }
 
         day.meals.forEach((m) => {
@@ -1286,17 +1442,28 @@ function todayISO() {
               </div>
             </div>`;
           } else {
-            h += `<div class="row" style="align-items:center;justify-content:space-between;background:var(--bg);border-radius:8px;padding:8px 10px;gap:8px;">
-              <div style="flex:1;min-width:0;">
-                <div class="small dim" style="font-style:italic;">${esc(m.note)}</div>
-                <div class="xs dim">${m.consumed.toFixed(0)} kcal · ${macroInline(m.protein, m.carbs, m.fat)}</div>
-                ${m.score != null ? `<div class="xs" style="margin-top:4px;"><span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:1px 8px;font-weight:700;">${m.score}/10</span> <span class="dim">${esc(m.comment || "")}</span></div>` : ""}
+            // Tocar el texto de la comida despliega sus nutrientes, si los tiene.
+            const abierta = openMealDetail === m.id && m.nutrientes;
+            h += `<div style="background:var(--bg);border-radius:8px;padding:8px 10px;">
+              <div class="row" style="align-items:center;justify-content:space-between;gap:8px;">
+                <div style="flex:1;min-width:0;${m.nutrientes ? "cursor:pointer;" : ""}" ${m.nutrientes ? `onclick="toggleMealDetail('${m.id}')"` : ""}>
+                  <div class="small dim" style="font-style:italic;">${esc(m.note)}</div>
+                  <div class="xs dim">${m.consumed.toFixed(0)} kcal · ${macroInline(m.protein, m.carbs, m.fat)}${m.nutrientes ? ` · <span style="color:var(--meta);">${abierta ? "ocultar" : "nutrientes"}</span>` : ""}</div>
+                  ${m.score != null ? `<div class="xs" style="margin-top:4px;"><span style="background:${nutritionColor(m.score)};color:#fff;border-radius:999px;padding:1px 8px;font-weight:700;">${m.score}/10</span> <span class="dim">${esc(m.comment || "")}</span></div>` : ""}
+                </div>
+                <button class="btn-ghost" onclick="startEditMeal('${m.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
+                <button class="btn-ghost" onclick="removeMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
               </div>
-              <button class="btn-ghost" onclick="startEditMeal('${m.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
-              <button class="btn-ghost" onclick="removeMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
+              ${abierta ? `<div style="margin-top:4px;">${N.gruposHTML(nutrientesDeComida(m), null, { compacta: true }).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("")}</div>` : ""}
             </div>`;
           }
         });
+
+        const nd = nutrientesDeComidas(day.meals);
+        h += `<div style="background:var(--bg);border-radius:8px;padding:12px 10px;">
+          <div class="small" style="font-weight:700;margin-bottom:10px;">Nutrientes del día</div>
+          ${bloqueNutrientes(nd.n, nd.sinDetalle, !!nutrDaysOpen[day.date], `toggleNutrDay('${day.date}')`)}
+        </div>`;
 
         h += `<div class="row gap12" style="margin-top:4px;">`;
         if (day.closed) h += `<button style="color:var(--amber);font-size:11px;" onclick="reopenDay('${day.date}')">Reabrir día</button>`;
@@ -1401,6 +1568,19 @@ function todayISO() {
         ? `<div class="small dim">Todavía no hay días registrados.</div>`
         : `<div class="grid4">${Stat("Consumido", c.avgConsumed.toFixed(0))}${Stat("Proteína", c.avgProtein.toFixed(0) + " g", "var(--protein)")}${Stat("Carbos", c.avgCarbs.toFixed(0) + " g", "var(--carbs)")}${Stat("Grasa", c.avgFat.toFixed(0) + " g", "var(--fat)")}</div>`}
     </div>`;
+
+    // Vitaminas y minerales se leen mejor en promedio: un día solo no dice
+    // mucho, una semana sí. Sin hoy, que está a medio cargar.
+    const semana = c.dayStats.filter((d) => d.date < c.todayStr && d.date >= addDaysISO(c.todayStr, -7));
+    if (semana.length) {
+      const nd = nutrientesDeComidas([].concat.apply([], semana.map((d) => d.meals)));
+      Object.keys(nd.n).forEach((k) => { nd.n[k] = nd.n[k] / semana.length; });
+      h += `<div class="card">
+        <div class="title" style="margin-bottom:4px;">Nutrientes · promedio de la semana</div>
+        <div class="xs dim" style="margin-bottom:12px;">Por día, sobre ${semana.length} día${semana.length !== 1 ? "s" : ""} cargado${semana.length !== 1 ? "s" : ""} de los últimos 7, sin contar hoy.</div>
+        ${bloqueNutrientes(nd.n, nd.sinDetalle, showAvgNutrients, "toggleAvgNutrients()")}
+      </div>`;
+    }
 
     return h + `</div>`;
   }
@@ -1529,7 +1709,20 @@ function todayISO() {
         </div>`;
       }
 
-      h += `<div class="xs dim" style="margin-bottom:16px;">Se suma como una comida más de hoy. Si algún número está mal, guardalo igual y corregilo después desde Historial.</div>
+      // Vitaminas y minerales: plegados, para que el número principal siga
+      // siendo las kcal. Si la función todavía no se redesplegó, no vienen.
+      if (parsed.detalle) {
+        const n = { ...parsed.detalle, kcal: parsed.consumed, proteinas_g: parsed.protein, carbohidratos_g: parsed.carbs, grasas_g: parsed.fat };
+        h += `<div style="margin-bottom:18px;">${bloqueNutrientes(n, 0, showParsedDetail, "toggleParsedDetail()")}</div>`;
+      }
+
+      const fechaCaptura = captureDate || todayISO();
+      h += `<div style="margin-bottom:14px;">
+        <label class="label" for="capture-date">Fecha</label>
+        <input id="capture-date" type="date" max="${todayISO()}" value="${fechaCaptura}" onchange="setCaptureDate(this.value)">
+      </div>
+      ${errorMsg ? `<div class="small" style="color:var(--rust);margin-bottom:12px;">${esc(errorMsg)}</div>` : ""}
+      <div class="xs dim" style="margin-bottom:16px;">Se suma como una comida más de ese día. Si algún número está mal, guardalo igual y corregilo después desde Historial.</div>
       <div class="row gap10">
         <button class="btn-secondary" style="width:52px;flex-shrink:0;display:flex;align-items:center;justify-content:center;" onclick="discardParsed()" aria-label="Descartar">${icon("close", "var(--textDim)", 19)}</button>
         <button class="btn-sage big-btn" style="flex:1;" onclick="confirmSave()">Guardar comida</button>
@@ -1539,7 +1732,10 @@ function todayISO() {
     }
 
     h += `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-size:18px;font-weight:700;">¿Qué comiste?</div>
+      <div>
+        <div style="font-size:18px;font-weight:700;">¿Qué comiste?</div>
+        ${captureDate && captureDate !== todayISO() ? `<div class="small" style="color:var(--amber);margin-top:2px;">Para el ${esc(formatDate(captureDate))}</div>` : ""}
+      </div>
       <button class="icon-btn" onclick="closeCapture()" aria-label="Cerrar">${icon("close", "var(--textDim)", 20)}</button>
     </div>
 
