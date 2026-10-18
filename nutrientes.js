@@ -7,10 +7,16 @@
 (function () {
   "use strict";
 
+  // Dos secciones arriba de todo: macro (de donde salen las calorías) y micro
+  // (vitaminas y minerales). Los grupos son el detalle dentro de cada una.
+  const SECCIONES = [
+    { k: "macro", nombre: "Macronutrientes", bajada: "Proteínas, carbohidratos y grasas: de acá salen las calorías." },
+    { k: "micro", nombre: "Micronutrientes", bajada: "Vitaminas y minerales: hacen falta en poca cantidad, pero todos los días." },
+  ];
   const GRUPOS = [
-    { k: "macros", nombre: "Macronutrientes" },
-    { k: "vitaminas", nombre: "Vitaminas" },
-    { k: "minerales", nombre: "Minerales" },
+    { k: "macros", nombre: "Macronutrientes", seccion: "macro" },
+    { k: "vitaminas", nombre: "Vitaminas", seccion: "micro" },
+    { k: "minerales", nombre: "Minerales", seccion: "micro" },
   ];
 
   // ref: "meta"   = conviene llegar a la referencia diaria;
@@ -185,6 +191,31 @@
     });
   }
 
+  // Lo mismo agrupado en Macronutrientes y Micronutrientes; dentro de
+  // Micronutrientes, Vitaminas y Minerales con su subtítulo. Un bloque por
+  // sección, sin envolver, para que la pantalla la meta en una tarjeta.
+  function seccionesHTML(n, refs, opciones) {
+    const grupos = gruposHTML(n, refs, opciones);
+    return SECCIONES.map((s) => {
+      const suyos = GRUPOS.filter((g) => g.seccion === s.k);
+      const html = suyos.map((g) => {
+        const bloque = grupos.find((x) => x.k === g.k).html;
+        // Un grupo que se llama igual que su sección no lleva subtítulo.
+        return g.nombre === s.nombre ? bloque : `<div class="nut-subgrupo">${g.nombre}</div>${bloque}`;
+      }).join("");
+      return { k: s.k, nombre: s.nombre, bajada: s.bajada, html };
+    });
+  }
+
+  // Las dos secciones seguidas, con su título: para la hoja de carga, el
+  // detalle de una comida o un día del historial.
+  function seccionesPlanas(n, refs, opciones) {
+    const compacta = !!(opciones && opciones.compacta);
+    return seccionesHTML(n, refs, opciones).map((s) =>
+      `<div class="nut-seccion">${s.nombre}</div>${compacta ? "" : `<div class="nut-bajada">${s.bajada}</div>`}${s.html}`
+    ).join("");
+  }
+
   // Los estilos viajan con la tabla para no repetirlos en cada página. Usan los
   // tokens de color de la página (--line, --textDim, --meta, ...).
   const CSS = `
@@ -203,6 +234,9 @@
     .nut-celda span { color: var(--textDim); }
     .nut-celda b { white-space: nowrap; }
     .nut-grupo { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--textDim); margin: 14px 0 4px; }
+    .nut-seccion { font-size: 15px; font-weight: 700; color: var(--text); margin: 18px 0 2px; }
+    .nut-bajada { font-size: 12px; color: var(--textDim); margin-bottom: 4px; line-height: 1.4; }
+    .nut-subgrupo { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--textDim); margin: 14px 0 2px; padding-top: 10px; border-top: 1px solid var(--line); }
   `;
   const estilo = document.createElement("style");
   estilo.textContent = CSS;
@@ -210,6 +244,6 @@
 
   window.Nutrientes = {
     GRUPOS, NUTRIENTES, CLAVES, CLAVES_BASE, CLAVES_DETALLE,
-    referencias, notaReferencias, limpiar, sumar, fmt, unidad, gruposHTML,
+    SECCIONES, referencias, notaReferencias, limpiar, sumar, fmt, unidad, gruposHTML, seccionesHTML, seccionesPlanas,
   };
 })();
