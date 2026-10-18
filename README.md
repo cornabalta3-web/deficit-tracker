@@ -1,10 +1,24 @@
 # Déficit Tracker — Despliegue en Netlify
 
 ## Qué incluye esta carpeta
-- `index.html` — la app completa (frontend), sin dependencias externas.
-- `netlify/functions/analyze.js` — función serverless que llama a la API de Anthropic protegiendo tu clave.
+- `index.html` — la app de déficit (frontend), sin dependencias externas.
+- `nutrientes.js` — catálogo de nutrientes y referencias diarias que usan las dos apps. Tiene que viajar junto a `index.html`.
+- `mama/` — la versión "Nutrientes": solo calorías, macros, vitaminas y minerales (ver abajo).
+- `netlify/functions/analyze.js` — función serverless que llama a la API de Anthropic protegiendo tu clave. La comparten las dos apps.
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
+
+## Versión "Nutrientes" (para mamá)
+
+Vive en `mama/` y se publica sola con el resto: queda en `https://tu-sitio.netlify.app/mama/`. Usa la misma función y la misma clave, así que no hay que configurar nada más.
+
+- No hay peso, objetivo, déficit ni rachas: cada comida (por foto o dictado) muestra las calorías, de dónde vienen (proteínas, carbohidratos y grasas), y el detalle de azúcares, fibra, tipos de grasa, colesterol, 13 vitaminas y 10 minerales.
+- Las barras comparan contra lo recomendado por día para su edad y sexo (los pide al entrar; se cambian en Ajustes). Son las ingestas de referencia de las Academias Nacionales de EE.UU.
+- El Historial tiene el promedio de la última semana, que es como conviene mirar vitaminas y minerales, y permite agregar comidas a un día pasado.
+- Arranca en modo claro y con letra más grande. Guarda en el celular con otro prefijo (`nutri_`), así que puede convivir con la app de déficit en el mismo teléfono.
+- Para el iPhone: abrir `/mama/` en Safari → compartir → "Agregar a pantalla de inicio". Aparece como "Nutrientes".
+
+Biotina, yodo, cromo y molibdeno quedaron afuera a propósito: las tablas de composición casi no los informan, así que cualquier número sería inventado.
 
 ## Paso 1 — Conseguir tu clave de API de Anthropic
 1. Andá a https://console.anthropic.com
@@ -54,6 +68,8 @@ Si la definís, la función va a exigir ese token en cada pedido. Tené en cuent
 La app usa **`claude-sonnet-5`**. Con ~4 análisis por día, el costo ronda los **$0,80 por mes**.
 
 Las fotos se redimensionan a 1024px en el navegador antes de mandarlas: para estimar un plato no se pierde nada útil y es lo que más baja el costo por análisis (una foto de iPhone sin tocar cuesta más del doble en tokens de entrada).
+
+Desde la v15 cada análisis devuelve también ~30 nutrientes de detalle (vitaminas, minerales, tipos de grasa), lo que agrega tokens de salida: con el mismo uso calculá algo así como medio dólar más por mes. Es una estimación, no una medición.
 
 Si alguna vez querés máxima precisión en las estimaciones por foto, cambiá `MODEL` en `netlify/functions/analyze.js` a `claude-opus-5`. Sube a ~$2,40 por mes.
 

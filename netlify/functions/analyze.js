@@ -1,8 +1,10 @@
 // Función serverless de Netlify — Déficit Tracker.
 //
-// Recibe { dictation, photo } desde el frontend, arma el pedido a la API de
-// Anthropic con la clave guardada como variable de entorno (ANTHROPIC_API_KEY)
-// y devuelve el análisis nutricional ya parseado.
+// Recibe { dictation, photo, perfil? } desde el frontend, arma el pedido a la
+// API de Anthropic con la clave guardada como variable de entorno
+// (ANTHROPIC_API_KEY) y devuelve el análisis nutricional ya parseado.
+// `perfil` elige entre la app de déficit (por defecto) y la de nutrientes
+// completos de /mama/; ver PERFILES.
 //
 // Decisiones de diseño importantes:
 //
@@ -34,6 +36,34 @@ const MAX_DICTATION_CHARS = 4000;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 const MEDIA_TYPES_VALIDOS = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
+// ---------- nutrientes ----------
+//
+// La unidad va en el nombre de cada campo para que el modelo no tenga que
+// adivinarla y el frontend no tenga que convertir nada. Las dos apps los
+// muestran con el catálogo de nutrientes.js: si sumás un campo acá, sumalo
+// también allá.
+//
+// Los cuatro de base son los que la app de déficit ya pedía con otro nombre
+// (consumed_kcal, protein_g...); el detalle es todo lo demás.
+const CAMPOS_BASE = ["kcal", "proteinas_g", "carbohidratos_g", "grasas_g"];
+const CAMPOS_DETALLE = [
+  "azucares_g", "fibra_g",
+  "grasas_saturadas_g", "grasas_monoinsaturadas_g", "grasas_poliinsaturadas_g", "grasas_trans_g",
+  "colesterol_mg",
+  "vitamina_a_ug", "vitamina_c_mg", "vitamina_d_ug", "vitamina_e_mg", "vitamina_k_ug",
+  "tiamina_b1_mg", "riboflavina_b2_mg", "niacina_b3_mg", "pantotenico_b5_mg", "vitamina_b6_mg",
+  "folato_b9_ug", "vitamina_b12_ug", "colina_mg",
+  "calcio_mg", "hierro_mg", "magnesio_mg", "fosforo_mg", "potasio_mg", "sodio_mg",
+  "zinc_mg", "cobre_mg", "manganeso_mg", "selenio_ug",
+];
+
+const numeros = (campos) => Object.fromEntries(campos.map((c) => [c, { type: "number" }]));
+
+// Reglas de unidades y de cómo estimar micronutrientes, comunes a los dos perfiles.
+const REGLAS_DETALLE = `- Cada nutriente va en la unidad que indica el nombre del campo (_g gramos, _mg miligramos, _ug microgramos) y es la cantidad TOTAL en esta comida. Vitamina A en microgramos de equivalentes de actividad de retinol (RAE), folato en microgramos DFE, niacina en miligramos NE.
+- Para vitaminas y minerales usá valores típicos de tablas de composición de alimentos para las porciones que estimaste. Si un nutriente prácticamente no está en estos alimentos, poné 0. Nunca dejes un campo sin número.
+- Las grasas saturadas, monoinsaturadas, poliinsaturadas y trans son parte de las grasas totales; los azúcares y la fibra son parte de los carbohidratos.`;
+
 const SYSTEM_PROMPT = `Sos un nutricionista que extrae datos estructurados sobre UNA comida o UN relato de actividad de un día. Podés recibir un relato dictado en español, una foto de comida, o ambos.
 
 Reglas:
@@ -42,13 +72,15 @@ Reglas:
   - Estimá el tamaño de las porciones con criterio realista de porción de restaurante/casa (no la porción "ideal" o mínima de un plan nutricional).
   - Ante la duda entre dos estimaciones razonables, elegí la más alta, no la más conservadora.
 - Esto puede ser SOLO UNA COMIDA — no asumas que es todo lo que la persona comió en el día.
-- Si la persona da directamente un número total de calorías consumidas en esta comida o en el día, usá ESE número tal cual, y en ese caso protein_g/carbs_g/fat_g quedan en 0.
+- Si la persona da directamente un número total de calorías consumidas en esta comida o en el día, usá ESE número tal cual, y en ese caso protein_g/carbs_g/fat_g y todo el detalle quedan en 0.
 - Si hay una foto, identificá los alimentos visibles y estimá porciones realistas.
 - total_expenditure_kcal: SOLO si se menciona explícitamente un gasto calórico TOTAL del día reportado por una app. Si no, poné null.
 - exercise_kcal: si se menciona ejercicio específico realizado, estimá las kcal quemadas SOLO por esa actividad puntual. Si no, poné null.
 - summary: un resumen de una frase en español de esta comida/actividad puntual.
 - nutrition_score: de 1 a 10, valorando la calidad nutricional de ESTA comida puntual (no del día completo). Considerá la densidad de proteína en relación a las calorías totales, el balance entre proteína/carbos/grasa, si son alimentos enteros o muy procesados/fritos, y la presencia de vegetales o fibra si se mencionan. 10 = muy completa y nutritiva, 1 = muy pobre (ej: solo azúcar o frituras sin proteína ni fibra).
 - nutrition_comment: un comentario breve en español (máximo 8 palabras) sobre el punto más relevante, por ejemplo "Falta proteína", "Gran fuente de grasas saludables", "Buen balance de macros", "Alta en sodio y frituras".
+- detalle: el resto de los macronutrientes, las vitaminas y los minerales de ESTA comida. Acá NO apliques el sesgo hacia arriba de las calorías: sobreestimar vitaminas te haría creer que estás cubierto cuando no. Si el relato es solo de actividad, sin comida, todo el detalle va en 0.
+${REGLAS_DETALLE}
 
 No inventes datos que no estén sugeridos por el contenido.`;
 
@@ -66,13 +98,53 @@ const ESQUEMA_NUTRICION = {
     summary: { type: "string" },
     nutrition_score: { type: "number" },
     nutrition_comment: { type: "string" },
+    detalle: {
+      type: "object",
+      properties: numeros(CAMPOS_DETALLE),
+      required: CAMPOS_DETALLE,
+      additionalProperties: false,
+    },
   },
   required: [
     "consumed_kcal", "protein_g", "carbs_g", "fat_g",
     "total_expenditure_kcal", "exercise_kcal",
-    "summary", "nutrition_score", "nutrition_comment",
+    "summary", "nutrition_score", "nutrition_comment", "detalle",
   ],
   additionalProperties: false,
+};
+
+// ---------- perfil "nutrientes" (la versión de mamá, en /mama/) ----------
+//
+// Misma función y misma clave, otro pedido: acá no hay déficit ni objetivo de
+// peso, solo saber qué tiene la comida. Por eso el prompt no empuja la
+// estimación hacia arriba como el de arriba (eso sirve para no engañarse con
+// el déficit, no para saber cuánto calcio comiste).
+const SYSTEM_PROMPT_NUTRIENTES = `Sos un nutricionista que estima la composición nutricional de UNA comida. Podés recibir un relato dictado en español (rioplatense), una foto de comida, o ambos.
+
+Reglas:
+- Estimá con criterio realista, ni de más ni de menos: porciones caseras o de restaurante tal como se ven o se cuentan, no la porción mínima de un plan.
+- Contá lo que suele quedar afuera: aceite o manteca de cocción, aderezos, salsas, azúcar agregada al café o al té, el pan que acompaña. Si el plato está claramente frito, salteado o con aderezo visible, sumalo aunque no se mencione.
+- Si la foto es de una etiqueta o tabla nutricional, usá esos valores, ajustados a la cantidad que la persona dice que comió (si no lo dice, una porción de la etiqueta).
+- Si la persona da cantidades (gramos, tazas, unidades), respetalas.
+- Pensá en alimentos y marcas comunes en Argentina cuando el nombre sea ambiguo.
+${REGLAS_DETALLE}
+- resumen: una frase en español que diga qué comida entendiste y en qué cantidades aproximadas, para que la persona pueda detectar un malentendido.
+
+No inventes alimentos que no estén sugeridos por el contenido.`;
+
+const ESQUEMA_NUTRIENTES = {
+  type: "object",
+  properties: { resumen: { type: "string" }, ...numeros(CAMPOS_BASE), ...numeros(CAMPOS_DETALLE) },
+  required: ["resumen", ...CAMPOS_BASE, ...CAMPOS_DETALLE],
+  additionalProperties: false,
+};
+
+// El cliente elige el perfil por nombre, nunca manda prompt ni esquema: así
+// el endpoint sigue sirviendo solo para estas dos cosas. Sin `perfil` se usa
+// el de la app original, que nunca lo manda.
+const PERFILES = {
+  deficit: { system: SYSTEM_PROMPT, schema: ESQUEMA_NUTRICION },
+  nutrientes: { system: SYSTEM_PROMPT_NUTRIENTES, schema: ESQUEMA_NUTRIENTES },
 };
 
 function responder(statusCode, body) {
@@ -156,6 +228,12 @@ exports.handler = async function (event) {
     return error(400, "body_invalido", "El cuerpo del pedido no es JSON válido.");
   }
 
+  const nombrePerfil = payload.perfil == null ? "deficit" : payload.perfil;
+  if (!Object.prototype.hasOwnProperty.call(PERFILES, nombrePerfil)) {
+    return error(400, "perfil_invalido", "Perfil de análisis desconocido.");
+  }
+  const perfil = PERFILES[nombrePerfil];
+
   const dictation = typeof payload.dictation === "string" ? payload.dictation.trim() : "";
   const photo = payload.photo || null;
 
@@ -199,9 +277,9 @@ exports.handler = async function (event) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
+        system: perfil.system,
         messages: [{ role: "user", content: bloques }],
-        output_config: { format: { type: "json_schema", schema: ESQUEMA_NUTRICION } },
+        output_config: { format: { type: "json_schema", schema: perfil.schema } },
       }),
     });
   } catch (e) {
@@ -233,6 +311,12 @@ exports.handler = async function (event) {
   // hay que mirar stop_reason antes de leer el contenido.
   if (data.stop_reason === "refusal") {
     return error(422, "rechazado", "El análisis fue rechazado. Probá describir la comida con otras palabras.");
+  }
+
+  // Si se cortó por el techo de tokens, el JSON viene a medias aunque haya
+  // esquema. Con los ~35 números del perfil nutrientes es más fácil llegar.
+  if (data.stop_reason === "max_tokens") {
+    return error(502, "respuesta_cortada", "El análisis quedó incompleto. Probá de nuevo.");
   }
 
   // Con el razonamiento activo la respuesta trae también bloques de thinking:
