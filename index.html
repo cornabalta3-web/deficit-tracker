@@ -153,7 +153,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v16-html · rediseño de Hoy: te quedan, comidas tocables, barra de 3";
+  const APP_VERSION = "v16-html · rediseño de Hoy y nutrientes en macro / micro";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
 
   let meals = [];
@@ -445,9 +445,9 @@ function todayISO() {
     if (sinDetalle > 0) {
       h += `<div class="xs dim" style="margin-top:10px;">${sinDetalle} comida${sinDetalle !== 1 ? "s" : ""} sin detalle (cargada${sinDetalle !== 1 ? "s" : ""} antes de esta versión o completada${sinDetalle !== 1 ? "s" : ""} sola${sinDetalle !== 1 ? "s" : ""}): las vitaminas y minerales pueden dar de menos.</div>`;
     }
-    h += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="${accion}">${abierto ? "Ocultar" : "Ver"} vitaminas y minerales</button>`;
+    h += `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="${accion}">${abierto ? "Ocultar" : "Ver"} macro y micronutrientes</button>`;
     if (abierto) {
-      h += N.gruposHTML(n, refs).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("");
+      h += N.seccionesPlanas(n, refs);
       h += `<div class="xs dim" style="margin-top:12px;line-height:1.45;">${esc(N.notaReferencias(goal.age, goal.gender === "female" ? "femenino" : "masculino"))} La proteína se compara con tu meta de Ajustes.</div>`;
     }
     return h;
@@ -1574,7 +1574,7 @@ function todayISO() {
                 <button class="btn-ghost" onclick="startEditMeal('${m.id}')" aria-label="Editar">${icon("pencil", "var(--textDim)", 16)}</button>
                 <button class="btn-ghost" onclick="askDeleteMeal('${m.id}')" aria-label="Borrar">${icon("trash", "var(--textDim)", 16)}</button>
               </div>
-              ${abierta ? `<div style="margin-top:4px;">${N.gruposHTML(nutrientesDeComida(m), null, { compacta: true }).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("")}</div>` : ""}
+              ${abierta ? `<div style="margin-top:4px;">${N.seccionesPlanas(nutrientesDeComida(m), null, { compacta: true })}</div>` : ""}
               ${confirmDeleteMealId === m.id ? `<div style="margin-top:10px;">${confirmarBorrarHTML(m)}</div>` : ""}
             </div>`;
           }

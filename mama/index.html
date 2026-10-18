@@ -106,7 +106,7 @@
   // convivir en el mismo celu sin pisarse.
 
   const N = window.Nutrientes;
-  const VERSION = "v1 · calorías, macros, vitaminas y minerales";
+  const VERSION = "v2 · macro y micronutrientes por separado";
   const PREFIJO = "nutri_";
   const PERFIL_VACIO = { nombre: "", edad: null, sexo: "femenino", tema: "light", listo: false };
   const EDAD_MIN = 18, EDAD_MAX = 110;
@@ -246,10 +246,14 @@
       </div>`;
   }
 
-  // Una tarjeta por grupo (macros, vitaminas, minerales) con las barras contra
-  // lo recomendado por día.
+  // Dos tarjetas: Macronutrientes y Micronutrientes (con Vitaminas y Minerales
+  // adentro), con las barras contra lo recomendado por día.
   function tarjetasNutrientes(n) {
-    return N.gruposHTML(n, refs()).map((g) => `<div class="card"><div class="title" style="margin-bottom:4px;">${g.nombre}</div>${g.html}</div>`).join("");
+    return N.seccionesHTML(n, refs()).map((s) => `<div class="card">
+      <div class="title" style="font-size:19px;">${s.nombre}</div>
+      <div class="small dim" style="margin:4px 0 6px;line-height:1.4;">${s.bajada}</div>
+      ${s.html}
+    </div>`).join("");
   }
 
   function comidaHTML(c) {
@@ -262,7 +266,7 @@
       </button>`;
     if (abierta) {
       h += `<div class="comida-detalle">
-        ${N.gruposHTML(c.n, refs(), { compacta: true }).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("")}
+        ${N.seccionesPlanas(c.n, refs(), { compacta: true })}
         <div style="margin-top:14px;">
           ${borrarPendiente === c.id
             ? `<div class="row gap10"><button class="btn-secondary btn-peligro" style="flex:1;" onclick="borrarComida('${c.id}')">Sí, borrarla</button><button class="btn-secondary" style="flex:1;" onclick="cancelarBorrar()">No</button></div>`
@@ -278,7 +282,10 @@
       `<button class="${pantalla === p ? "on" : ""}" onclick="irA('${p}')">${icon(ic, pantalla === p ? "var(--amber)" : "var(--textDim)")}<span>${label}</span></button>`;
     return `<div class="nav">
       ${item("hoy", "home", "Hoy")}
-      <div><button class="cap" onclick="abrirCarga()" aria-label="Cargar comida">${icon("plus", "#1A1300", 28, 2.2)}</button></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+        <button class="cap" onclick="abrirCarga()" aria-label="Agregar comida">${icon("plus", "#1A1300", 28, 2.2)}</button>
+        <span style="font-size:12px;color:var(--amber);font-weight:700;">Agregar</span>
+      </div>
       ${item("historial", "list", "Historial")}
     </div>`;
   }
@@ -341,7 +348,8 @@
     }
 
     h += `<div class="title" style="margin:6px 0 10px;">Lo que comiste</div>
-      <div class="col gap8" style="margin-bottom:22px;">${lista.map(comidaHTML).join("")}</div>`;
+      <div class="col gap8" style="margin-bottom:12px;">${lista.map(comidaHTML).join("")}</div>
+      <button class="btn-secondary big-btn" style="width:100%;margin-bottom:24px;border-color:var(--amber);color:var(--amber);font-weight:700;" onclick="abrirCarga()">${icon("plus", "var(--amber)", 20, 2.2)} Agregar otra comida</button>`;
 
     h += `<div class="title" style="margin:0 0 10px;">Lo que te aportó</div>`;
     h += tarjetasNutrientes(n);
@@ -374,8 +382,8 @@
         </div>
         <div class="xs dim" style="margin-top:6px;">Sobre ${prom.dias} día${prom.dias !== 1 ? "s" : ""} con comidas cargadas, sin contar hoy.</div>
         ${repartoHTML(prom.n)}
-        <button class="btn-secondary" style="width:100%;margin-top:16px;" onclick="togglePromedio()">${promedioAbierto ? "Ocultar" : "Ver"} vitaminas y minerales</button>
-        ${promedioAbierto ? N.gruposHTML(prom.n, refs()).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("") : ""}
+        <button class="btn-secondary" style="width:100%;margin-top:16px;" onclick="togglePromedio()">${promedioAbierto ? "Ocultar" : "Ver"} macro y micronutrientes</button>
+        ${promedioAbierto ? N.seccionesPlanas(prom.n, refs()) : ""}
       </div>`;
     }
 
@@ -394,7 +402,7 @@
         h += `<div class="comida-detalle">
           <div class="col gap8" style="margin-bottom:12px;">${lista.map(comidaHTML).join("")}</div>
           <button class="btn-secondary" style="width:100%;" onclick="abrirCarga('${f}')">${icon("plus", "var(--text)", 16, 2)} <span style="vertical-align:3px;">Agregar una comida a este día</span></button>
-          ${N.gruposHTML(n, refs()).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("")}
+          ${N.seccionesPlanas(n, refs())}
         </div>`;
       }
       h += `</div>`;
@@ -464,7 +472,7 @@
         </div>
         ${repartoHTML(n)}
         <div class="xs dim" style="margin-top:14px;">Los porcentajes son de lo recomendado para todo el día.</div>
-        ${N.gruposHTML(n, refs()).map((g) => `<div class="nut-grupo">${g.nombre}</div>${g.html}`).join("")}
+        ${N.seccionesPlanas(n, refs())}
         <div style="margin:18px 0 16px;">
           <label class="label" for="fecha-carga">¿Qué día la comiste?</label>
           <input id="fecha-carga" type="date" max="${hoyISO()}" value="${fecha}">
