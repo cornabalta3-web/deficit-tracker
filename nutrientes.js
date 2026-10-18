@@ -151,7 +151,10 @@
 
   // ---------- tabla ----------
 
-  function fila(d, n, refs) {
+  // `destacar` = {clave: nota}: marca el renglón como importante para esta
+  // persona (por ejemplo, el sodio con presión alta) y muestra la nota abajo.
+  function fila(d, n, refs, destacar) {
+    const nota = destacar && destacar[d.k];
     const v = n[d.k] || 0;
     const u = unidad(d.u);
     let pct = null, color = "var(--meta)", texto = "";
@@ -171,9 +174,10 @@
       texto = `${fmt(deLasKcal)}% de las kcal (máx. 10%)`;
     }
 
-    return `<div class="nut${d.sub ? " nut-sub" : ""}">
-      <div class="nut-top"><span>${d.nombre}</span><span class="nut-val">${fmt(v)} <span class="nut-u">${u}</span></span></div>
+    return `<div class="nut${d.sub ? " nut-sub" : ""}${nota ? " nut-destacado" : ""}">
+      <div class="nut-top"><span>${d.nombre}${nota ? ` <span class="nut-tag">para vos</span>` : ""}</span><span class="nut-val">${fmt(v)} <span class="nut-u">${u}</span></span></div>
       ${pct != null ? `<div class="nut-bar"><div class="track"><i style="width:${Math.min(100, pct).toFixed(0)}%;background:${color};"></i></div><span class="nut-ref">${texto}</span></div>` : ""}
+      ${nota ? `<div class="nut-nota">${nota}</div>` : ""}
     </div>`;
   }
 
@@ -186,7 +190,7 @@
       const defs = NUTRIENTES.filter((d) => d.grupo === g.k);
       const html = compacta
         ? `<div class="nut-grid">${defs.map((d) => `<div class="nut-celda"><span>${d.largo || d.nombre}</span><b>${fmt(n[d.k])} ${unidad(d.u)}</b></div>`).join("")}</div>`
-        : `<div class="nut-lista">${defs.map((d) => fila(d, n, refs || {})).join("")}</div>`;
+        : `<div class="nut-lista">${defs.map((d) => fila(d, n, refs || {}, opciones && opciones.destacar)).join("")}</div>`;
       return { k: g.k, nombre: g.nombre, html };
     });
   }
@@ -233,6 +237,8 @@
     .nut-celda { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
     .nut-celda span { color: var(--textDim); }
     .nut-celda b { white-space: nowrap; }
+    .nut-tag { font-size: 10px; font-weight: 700; color: var(--amber); border: 1px solid var(--amber); border-radius: 999px; padding: 0 6px; margin-left: 4px; vertical-align: 1px; white-space: nowrap; }
+    .nut-nota { font-size: 12px; color: var(--textDim); margin-top: 5px; line-height: 1.4; }
     .nut-grupo { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--textDim); margin: 14px 0 4px; }
     .nut-seccion { font-size: 15px; font-weight: 700; color: var(--text); margin: 18px 0 2px; }
     .nut-bajada { font-size: 12px; color: var(--textDim); margin-bottom: 4px; line-height: 1.4; }

@@ -14,79 +14,114 @@
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <title>Nutrientes</title>
 <style>
-  /* Mismos tokens que la app de déficit, más --meta para las barras de
-     vitaminas y minerales. Arranca en claro: se lee mejor de día. */
+  /* Mismos tokens que la app de déficit, más los colores de las dos secciones:
+     azul para Macronutrientes y verde para Micronutrientes, siempre los mismos
+     en toda la app para que se reconozcan sin leer. Arranca en claro. */
   :root {
     --bg: #14181C; --surface: #1C2227; --surfaceRaised: #242B31; --line: #333B42;
     --text: #F2EFE9; --textDim: #9AA3AA; --amber: #E8A33D; --sage: #6FA98A; --rust: #C1584B;
     --protein: #6C93E8; --carbs: #D9823D; --fat: #B589E0; --meta: #5E9FC4;
+    --macro: #7FA2F0; --macroBg: #1E2A3D; --micro: #73B98E; --microBg: #1D2E25; --vos: #E8A33D; --vosBg: #33291A;
   }
   [data-theme="light"] {
     --bg: #F7F5F0; --surface: #FFFFFF; --surfaceRaised: #EFEBE2; --line: #DDD6C8;
-    --text: #23262B; --textDim: #6D7278; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
+    --text: #23262B; --textDim: #61666C; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
     --protein: #3A5FC4; --carbs: #B5631F; --fat: #8354B8; --meta: #2F7398;
+    --macro: #2F5BB7; --macroBg: #EAF0FB; --micro: #2E7D4F; --microBg: #E8F4EC; --vos: #9A6514; --vosBg: #FBF1E0;
   }
   * { box-sizing: border-box; }
   body, #root { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; font-size: 16px; }
-  #root { padding: calc(24px + env(safe-area-inset-top, 0px)) 18px calc(120px + env(safe-area-inset-bottom, 0px)); min-height: 100vh; }
+  #root { padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(124px + env(safe-area-inset-bottom, 0px)); min-height: 100vh; }
   .screen { max-width: 620px; margin: 0 auto; }
   /* 16px en los campos: con menos, el iPhone hace zoom al tocarlos. */
   input, textarea, select {
     font-family: inherit; background: var(--surfaceRaised); border: 1px solid var(--line);
-    color: var(--text); border-radius: 10px; padding: 12px 13px; font-size: 16px; width: 100%; outline: none;
+    color: var(--text); border-radius: 12px; padding: 13px 14px; font-size: 16px; width: 100%; outline: none;
   }
   input:focus, textarea:focus, select:focus { border-color: var(--amber); }
-  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; font-size: 15px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; font-size: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
   .row { display: flex; }
   .col { display: flex; flex-direction: column; }
   .gap8 { gap: 8px; } .gap10 { gap: 10px; } .gap12 { gap: 12px; }
   .dim { color: var(--textDim); }
-  .small { font-size: 14px; }
-  .xs { font-size: 12px; }
-  .title { font-size: 17px; font-weight: 700; }
-  .label { font-size: 13px; color: var(--textDim); display: block; margin-bottom: 5px; }
-  .stat-label { font-size: 12px; color: var(--textDim); text-transform: uppercase; letter-spacing: .5px; }
-  .btn-primary { background: var(--amber); color: #1A1300; border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 16px; }
+  .small { font-size: 15px; }
+  .xs { font-size: 13px; }
+  .title { font-size: 19px; font-weight: 700; }
+  .label { font-size: 14px; color: var(--textDim); display: block; margin-bottom: 6px; font-weight: 600; }
+  .stat-label { font-size: 13px; color: var(--textDim); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+
+  /* Botones: grandes, con texto siempre, y un color por intención —
+     ámbar = hacer algo, verde = guardar, rojo = borrar, borde = volver/otro. */
+  .btn { min-height: 56px; border-radius: 14px; padding: 12px 18px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 17px; font-weight: 700; width: 100%; }
+  .btn-primary { background: var(--amber); color: #1A1300; }
   .btn-primary:disabled { background: var(--line); color: var(--textDim); }
-  .btn-secondary { background: transparent; border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 12px 16px; font-size: 15px; }
-  .btn-sage { background: var(--sage); color: #0E1A14; border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 16px; }
-  .btn-peligro { border-color: var(--rust); color: var(--rust); }
-  .big-btn { min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; min-height: 48px; margin-bottom: 8px; }
-  .icon-btn { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; margin-right: -10px; }
-  .hero-num { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
-  .track { height: 6px; background: var(--surfaceRaised); border-radius: 999px; overflow: hidden; }
+  .btn-sage { background: var(--sage); color: #FFFFFF; }
+  .btn-secondary { background: var(--surface); border: 2px solid var(--line); color: var(--text); }
+  .btn-peligro { background: var(--surface); border: 2px solid var(--rust); color: var(--rust); }
+  .btn-volver { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 8px 16px 8px 10px; border: 2px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 17px; font-weight: 700; color: var(--text); }
+  .btn-datos { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; padding: 8px 14px; border: 2px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 15px; font-weight: 700; color: var(--text); }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; margin-bottom: 12px; }
+  .hero-num { font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+  .track { height: 8px; background: var(--surfaceRaised); border-radius: 999px; overflow: hidden; }
   .track > i { display: block; height: 100%; border-radius: 999px; transition: width .35s ease; }
-  .reparto { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--surfaceRaised); margin-top: 16px; }
+  .reparto { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--surfaceRaised); margin-top: 16px; }
   .reparto > i { display: block; height: 100%; }
-  .sq { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; }
-  .comida { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  .comida-top { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; }
-  .comida-txt { flex: 1; min-width: 0; font-size: 15px; line-height: 1.3; }
-  .comida-kcal { font-weight: 700; flex-shrink: 0; }
+  .sq { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+  .comida { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; overflow: hidden; }
+  .comida-top { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; min-height: 64px; }
+  .comida-txt { flex: 1; min-width: 0; font-size: 16px; line-height: 1.3; }
+  .comida-kcal { font-weight: 800; flex-shrink: 0; font-size: 17px; }
   .comida-detalle { padding: 0 14px 14px; }
-  .aviso { background: var(--surfaceRaised); border-radius: 10px; padding: 11px 12px; font-size: 14px; line-height: 1.45; }
+  .seccion-titulo { font-size: 20px; font-weight: 800; margin: 22px 0 10px; }
+  .pie { text-align: center; font-size: 13px; color: var(--textDim); padding: 18px 0 6px; }
+
+  /* Desplegables de Macro / Micro: el encabezado entero es el botón, con color,
+     ícono, un resumen y la palabra "Ver" o "Cerrar" a la vista. */
+  .ac { border-radius: 18px; overflow: hidden; margin-bottom: 12px; border: 2px solid var(--line); background: var(--surface); }
+  .ac-cab { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; text-align: left; min-height: 72px; }
+  .ac-icono { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #FFFFFF; }
+  .ac-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ac-titulo { font-size: 18px; font-weight: 800; }
+  .ac-resumen { font-size: 13px; color: var(--textDim); line-height: 1.35; }
+  .ac-ver { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 800; padding: 8px 12px; border-radius: 999px; color: #FFFFFF; }
+  .ac-cuerpo { padding: 4px 16px 16px; background: var(--surface); }
+  .ac-bajada { font-size: 14px; color: var(--textDim); line-height: 1.4; padding: 10px 0 2px; }
+  .ac-macro { border-color: var(--macro); }
+  .ac-macro .ac-cab { background: var(--macroBg); }
+  .ac-macro .ac-icono, .ac-macro .ac-ver { background: var(--macro); }
+  .ac-micro { border-color: var(--micro); }
+  .ac-micro .ac-cab { background: var(--microBg); }
+  .ac-micro .ac-icono, .ac-micro .ac-ver { background: var(--micro); }
+
+  /* Tarjeta "Para vos": lo que importa según su salud y lo que le dijo el médico. */
+  .vos { border: 2px solid var(--vos); background: var(--vosBg); }
+  .vos-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; }
+  .vos-item + .vos-item { border-top: 1px solid var(--line); }
+  .vos-punto { width: 34px; height: 34px; border-radius: 50%; background: var(--vos); color: #FFFFFF; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* Opciones grandes para tocar: actividad (una) y salud (varias). */
+  .opcion { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px; border: 2px solid var(--line); border-radius: 14px; background: var(--surface); text-align: left; min-height: 60px; }
+  .opcion + .opcion { margin-top: 8px; }
+  .opcion.on { border-color: var(--sage); background: var(--microBg); }
+  .marca { width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface); }
+  .marca.redonda { border-radius: 50%; }
+  .opcion.on .marca { background: var(--sage); border-color: var(--sage); }
 
   .nav {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-    height: calc(84px + env(safe-area-inset-bottom, 0px));
-    background: var(--surface); border-top: 1px solid var(--line);
-    display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: start; padding-top: 10px;
+    height: calc(88px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface); border-top: 2px solid var(--line);
+    display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: start; padding-top: 8px;
   }
-  .nav > button { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 50px; justify-content: center; font-size: 12px; color: var(--textDim); }
+  .nav > button { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 58px; justify-content: center; font-size: 14px; font-weight: 700; color: var(--textDim); }
   .nav > button.on { color: var(--amber); }
-  .nav .cap { width: 60px; height: 60px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; margin: -20px auto 0; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .nav .cap { width: 62px; height: 62px; border-radius: 50%; background: var(--amber); display: flex; align-items: center; justify-content: center; margin: -22px auto 0; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
 
-  .sheet-backdrop { position: fixed; inset: 0; background: rgba(10,13,16,.55); z-index: 70; }
-  .sheet {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 71;
-    background: var(--surface); border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
-    padding: 12px 18px calc(28px + env(safe-area-inset-bottom, 0px));
-    max-height: 90vh; overflow-y: auto;
-  }
-  .sheet-in { max-width: 620px; margin: 0 auto; }
-  .grab { width: 38px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 18px; }
+  /* La carga de una comida es una pantalla entera, no una hoja que se cierra
+     tocando afuera: así no se pierde lo escrito por un toque sin querer. */
+  .carga { position: fixed; inset: 0; z-index: 80; background: var(--bg); overflow-y: auto; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px calc(32px + env(safe-area-inset-bottom, 0px)); }
   .spin { animation: spin 1s linear infinite; display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -98,28 +133,51 @@
 (function () {
   "use strict";
   // Versión para mamá: solo saber qué tiene lo que come. Calorías,
-  // macronutrientes, vitaminas y minerales, por comida y por día. No hay peso,
-  // ni objetivo, ni déficit, ni rachas: eso es de la app de déficit (../).
+  // macronutrientes, vitaminas y minerales, por comida y por día. No hay
+  // objetivo de peso, ni déficit, ni rachas: eso es de la app de déficit (../).
   //
   // Pega contra la misma función que la app de déficit pero con el perfil
   // "nutrientes", y guarda en localStorage con otro prefijo, así las dos pueden
   // convivir en el mismo celu sin pisarse.
+  //
+  // v3 está pensada para alguien a quien le cuesta el celular: botones grandes
+  // con texto, un "Volver" visible en cada pantalla, el botón de atrás del
+  // teléfono que no saca de la app, y nada que se cierre por tocar afuera.
 
   const N = window.Nutrientes;
-  const VERSION = "v2 · macro y micronutrientes por separado";
+  const VERSION = "3";
   const PREFIJO = "nutri_";
-  const PERFIL_VACIO = { nombre: "", edad: null, sexo: "femenino", tema: "light", listo: false };
+  const SALUD_VACIA = { presion: false, azucar: false, colesterol: false, huesos: false, anemia: false, anticoagulante: false, rinon: false };
+  const PERFIL_VACIO = { nombre: "", edad: null, sexo: "femenino", peso: null, altura: null, actividad: null, salud: { ...SALUD_VACIA }, medico: "", tema: "light", listo: false };
   const EDAD_MIN = 18, EDAD_MAX = 110;
+
+  // Mifflin-St Jeor por el factor de actividad. Las etiquetas están en
+  // palabras de todos los días, no "sedentario / moderado".
+  const ACTIVIDADES = [
+    { k: "poca", nombre: "Casi nada", detalle: "Estoy mucho en casa y camino poco.", factor: 1.2 },
+    { k: "algo", nombre: "Un poco", detalle: "Las cosas de la casa y alguna caminata corta.", factor: 1.375 },
+    { k: "bastante", nombre: "Bastante", detalle: "Camino o hago gimnasia 3 a 5 veces por semana.", factor: 1.55 },
+    { k: "mucha", nombre: "Mucho", detalle: "Actividad fuerte casi todos los días.", factor: 1.725 },
+  ];
+  const SALUD = [
+    { k: "presion", nombre: "Presión alta" },
+    { k: "azucar", nombre: "Azúcar alta o diabetes" },
+    { k: "colesterol", nombre: "Colesterol alto" },
+    { k: "huesos", nombre: "Huesos frágiles u osteoporosis" },
+    { k: "anemia", nombre: "Anemia" },
+    { k: "anticoagulante", nombre: "Tomo anticoagulante (Sintrom, warfarina)" },
+    { k: "rinon", nombre: "Problemas de riñón" },
+  ];
 
   let comidas = [];               // [{id, fecha, creada, resumen, n}]
   let perfil = { ...PERFIL_VACIO };
 
   // Estado de pantalla
-  let pantalla = "hoy";           // hoy | historial | ajustes
-  let hojaAbierta = false;
+  let pantalla = "hoy";           // hoy | historial | datos
+  let cargaAbierta = false;
   let fechaCarga = null;          // a qué día va la comida que se está cargando
-  // El textarea se destruye en cada render (rearmamos innerHTML entero): lo
-  // tipeado se rescata acá antes de redibujar, si no adjuntar una foto lo borraba.
+  // La pantalla se rearma entera en cada render: lo tipeado se rescata antes
+  // de redibujar, si no adjuntar una foto borraba lo escrito.
   let borrador = "";
   let foto = null;                // {dataUrl, mediaType}
   let analizando = false;
@@ -128,8 +186,8 @@
   let comidaAbierta = null;
   let borrarPendiente = null;     // comida con el "¿Seguro?" a la vista
   let diasAbiertos = {};
-  let promedioAbierto = false;
-  let perfilMsg = null;           // {tipo, texto} en Ajustes y en la bienvenida
+  let abiertos = {};              // desplegables abiertos, por clave ("hoy-macro", ...)
+  let perfilMsg = null;           // {tipo, texto} en Mis datos y en la bienvenida
   let confirmarReset = false;
   let importMsg = "";
 
@@ -176,10 +234,16 @@
       n: N.limpiar(c.n),
     };
   }
+  // Un perfil de la v1/v2 no tiene peso, actividad ni salud: se completan
+  // con vacíos y lo demás queda como estaba.
+  function perfilValido(p) {
+    const base = { ...PERFIL_VACIO, ...(p || {}) };
+    base.salud = { ...SALUD_VACIA, ...((p && p.salud) || {}) };
+    return base;
+  }
 
   function cargar() {
-    const p = leer("perfil");
-    perfil = p ? { ...PERFIL_VACIO, ...p } : { ...PERFIL_VACIO };
+    perfil = perfilValido(leer("perfil"));
     const lista = leer("comidas");
     comidas = Array.isArray(lista) ? lista.map(comidaValida).filter(Boolean) : [];
     aplicarTema();
@@ -193,8 +257,79 @@
     if (meta) meta.setAttribute("content", t === "dark" ? "#14181C" : "#F7F5F0");
   }
 
+  // ---------- el botón de atrás del celular ----------
+  //
+  // La app es una sola página: sin esto, tocar "atrás" en Android (o deslizar
+  // en iPhone) la cerraba entera aunque estuvieras en Historial o cargando una
+  // comida. Mientras no estás en Hoy hay una entrada extra en el historial
+  // del navegador; "atrás" la consume y la app vuelve un paso: cierra la
+  // carga, o vuelve a Hoy. Al volver a Hoy por un botón, la entrada se saca.
+  let trampaArmada = false;
+  let ignorarPop = false;
+  function enInicio() { return pantalla === "hoy" && !cargaAbierta; }
+  function sincronizarAtras() {
+    if (!enInicio() && !trampaArmada) { history.pushState({ nutri: true }, ""); trampaArmada = true; }
+    else if (enInicio() && trampaArmada) { trampaArmada = false; ignorarPop = true; history.back(); }
+  }
+  window.addEventListener("popstate", function () {
+    if (ignorarPop) { ignorarPop = false; return; }
+    trampaArmada = false;
+    volverUnPaso();
+  });
+  function volverUnPaso() {
+    guardarBorrador();
+    if (cargaAbierta) cargaAbierta = false;
+    else pantalla = "hoy";
+    perfilMsg = null; confirmarReset = false;
+    render();
+  }
+
   // ---------- cuentas ----------
-  function refs() { return N.referencias(perfil.edad, perfil.sexo); }
+  function refs() {
+    const r = N.referencias(perfil.edad, perfil.sexo);
+    // Con el peso, la proteína se calcula por kilo: 0,8 g/kg, y 1 g/kg desde
+    // los 65 años (más proteína ayuda a no perder músculo con la edad).
+    if (perfil.peso > 0) r.proteinas_g = Math.round(perfil.peso * (perfil.edad >= 65 ? 1 : 0.8));
+    // Con presión alta el máximo de sodio baja de 2.300 a 1.500 mg.
+    if (perfil.salud.presion) r.sodio_mg = 1500;
+    // Con problemas de riñón no hay que empujar a "llegar" a estos tres: el
+    // médico fija cuánto. Se muestra solo la cantidad, sin barra.
+    if (perfil.salud.rinon) { delete r.potasio_mg; delete r.fosforo_mg; delete r.proteinas_g; }
+    return r;
+  }
+  function caloriasDelDia() {
+    const a = ACTIVIDADES.find((x) => x.k === perfil.actividad);
+    if (!(perfil.peso > 0 && perfil.altura > 0 && perfil.edad > 0 && a)) return null;
+    const bmr = 10 * perfil.peso + 6.25 * perfil.altura - 5 * perfil.edad + (perfil.sexo === "masculino" ? 5 : -161);
+    return Math.round((bmr * a.factor) / 10) * 10;
+  }
+  function datosCompletos() { return !!caloriasDelDia(); }
+
+  // Nutrientes que importan según su salud, con una nota corta: se marcan
+  // "para vos" en las tablas y arman la tarjeta "Para vos" de Hoy.
+  function destacados() {
+    const s = perfil.salud, d = {};
+    if (s.presion) d.sodio_mg = "Con presión alta conviene no pasar de 1.500 mg por día.";
+    if (s.azucar) {
+      d.azucares_g = "Con azúcar alta, cuanto menos azúcar, mejor.";
+      d.carbohidratos_g = "Mejor repartidos en el día. Tu médico te dice cuánto.";
+      d.fibra_g = "La fibra ayuda a controlar el azúcar.";
+    }
+    if (s.colesterol) {
+      d.grasas_saturadas_g = "Con colesterol alto, menos del 10% de las calorías.";
+      d.grasas_trans_g = "Lo ideal es nada.";
+      d.fibra_g = d.fibra_g || "La fibra ayuda a bajar el colesterol.";
+    }
+    if (s.huesos) { d.calcio_mg = "Clave para los huesos."; d.vitamina_d_ug = "Ayuda a que el cuerpo use el calcio."; }
+    if (s.anemia) { d.hierro_mg = "Clave con anemia."; d.vitamina_c_mg = "Ayuda a absorber el hierro."; d.vitamina_b12_ug = "También importa con anemia."; }
+    if (s.anticoagulante) d.vitamina_k_ug = "Con anticoagulante, que sea parecida todos los días, sin cambios bruscos.";
+    if (s.rinon) {
+      const nota = "Con problemas de riñón, tu médico te dice cuánto.";
+      d.potasio_mg = nota; d.fosforo_mg = nota; d.proteinas_g = nota; d.sodio_mg = d.sodio_mg || nota;
+    }
+    return d;
+  }
+
   function comidasDe(fecha) { return comidas.filter((c) => c.fecha === fecha).sort((a, b) => a.creada - b.creada); }
   function totalDe(lista) { return N.sumar(lista.map((c) => c.n)); }
   function diasConComidas() { return Array.from(new Set(comidas.map((c) => c.fecha))).sort().reverse(); }
@@ -215,7 +350,6 @@
   const ICONS = {
     home: '<path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.8V21h14V9.8"></path>',
     list: '<path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3.5 6h.01"></path><path d="M3.5 12h.01"></path><path d="M3.5 18h.01"></path>',
-    gear: '<circle cx="12" cy="12" r="3.2"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="m4.9 4.9 2.1 2.1"></path><path d="m17 17 2.1 2.1"></path><path d="M2 12h3"></path><path d="M19 12h3"></path><path d="m4.9 19.1 2.1-2.1"></path><path d="m17 7 2.1-2.1"></path>',
     plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
     close: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
     mic: '<rect x="9" y="2.5" width="6" height="11.5" rx="3"></rect><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"></path><path d="M12 18v3.5"></path>',
@@ -224,12 +358,24 @@
     down: '<path d="m6 9 6 6 6-6"></path>',
     up: '<path d="m6 15 6-6 6 6"></path>',
     back: '<path d="m15 18-6-6 6-6"></path>',
+    check: '<path d="M4 12.5 9.5 18 20 6.5"></path>',
+    user: '<circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path>',
+    bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"></path>',
+    leaf: '<path d="M5 19c0-8 5-14 15-15-1 10-7 15-15 15z"></path><path d="M5 19 13 11"></path>',
+    heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"></path>',
+    walk: '<circle cx="13" cy="4" r="2"></circle><path d="m9 21 2-6 3 3v3"></path><path d="M7 12l3-4 4 2 3 3"></path><path d="m11 15-1-5"></path>',
+    note: '<path d="M6 3h9l4 4v14H6z"></path><path d="M9 11h7"></path><path d="M9 15h7"></path>',
   };
   function icon(name, color, size, sw) {
-    return `<svg width="${size || 22}" height="${size || 22}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
+    return `<svg aria-hidden="true" width="${size || 22}" height="${size || 22}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" stroke-width="${sw || 1.9}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
   }
 
   // ---------- piezas de pantalla ----------
+
+  function botonVolver(texto) {
+    return `<button class="btn-volver" onclick="volver()">${icon("back", "var(--text)", 22, 2.4)} ${texto || "Volver"}</button>`;
+  }
+  function pie() { return `<div class="pie">Nutrientes · versión ${VERSION}</div>`; }
 
   // De dónde vienen las calorías. Se calcula con 4/4/9 kcal por gramo y no
   // contra el total, así las tres partes siempre suman 100 %.
@@ -239,38 +385,103 @@
     if (t <= 0) return "";
     const pc = (x) => Math.round((x / t) * 100);
     return `<div class="reparto"><i style="width:${(p / t) * 100}%;background:var(--protein);"></i><i style="width:${(c / t) * 100}%;background:var(--carbs);"></i><i style="width:${(g / t) * 100}%;background:var(--fat);"></i></div>
-      <div class="row" style="flex-wrap:wrap;gap:6px 16px;margin-top:10px;">
-        <span class="small dim"><span class="sq" style="background:var(--protein);"></span>Proteínas ${N.fmt(n.proteinas_g)} g · ${pc(p)}%</span>
-        <span class="small dim"><span class="sq" style="background:var(--carbs);"></span>Carbohidratos ${N.fmt(n.carbohidratos_g)} g · ${pc(c)}%</span>
-        <span class="small dim"><span class="sq" style="background:var(--fat);"></span>Grasas ${N.fmt(n.grasas_g)} g · ${pc(g)}%</span>
+      <div class="col" style="gap:6px;margin-top:10px;">
+        <span class="small"><span class="sq" style="background:var(--protein);"></span>Proteínas <b>${N.fmt(n.proteinas_g)} g</b> <span class="dim">· ${pc(p)}%</span></span>
+        <span class="small"><span class="sq" style="background:var(--carbs);"></span>Carbohidratos <b>${N.fmt(n.carbohidratos_g)} g</b> <span class="dim">· ${pc(c)}%</span></span>
+        <span class="small"><span class="sq" style="background:var(--fat);"></span>Grasas <b>${N.fmt(n.grasas_g)} g</b> <span class="dim">· ${pc(g)}%</span></span>
       </div>`;
   }
 
-  // Dos tarjetas: Macronutrientes y Micronutrientes (con Vitaminas y Minerales
-  // adentro), con las barras contra lo recomendado por día.
-  function tarjetasNutrientes(n) {
-    return N.seccionesHTML(n, refs()).map((s) => `<div class="card">
-      <div class="title" style="font-size:19px;">${s.nombre}</div>
-      <div class="small dim" style="margin:4px 0 6px;line-height:1.4;">${s.bajada}</div>
-      ${s.html}
-    </div>`).join("");
+  // Calorías contra lo que necesita por día, si hay datos para calcularlo.
+  function barraCalorias(total) {
+    const ref = caloriasDelDia();
+    if (!ref) return "";
+    const pct = (total / ref) * 100;
+    const color = pct > 100 ? "var(--amber)" : "var(--sage)";
+    return `<div class="small dim" style="margin-top:8px;">de unas <b style="color:var(--text);">${kcal(ref)}</b> que necesitás por día</div>
+      <div class="track" style="height:12px;margin-top:10px;"><i style="width:${Math.min(100, pct).toFixed(0)}%;background:${color};"></i></div>`;
+  }
+
+  // Los dos desplegables: Macronutrientes (azul) y Micronutrientes (verde).
+  // Cerrados muestran un resumen; abiertos, la tabla con barras. `clave` los
+  // distingue según dónde estén (hoy, un día del historial, el resultado...).
+  function desplegables(n, clave, deUnDia) {
+    const r = refs(), dest = destacados();
+    return N.seccionesHTML(n, r, { destacar: dest }).map((s) => {
+      const k = clave + "-" + s.k;
+      const abierto = !!abiertos[k];
+      let resumen;
+      if (s.k === "macro") {
+        resumen = `Proteínas ${N.fmt(n.proteinas_g)} g · Carbohidratos ${N.fmt(n.carbohidratos_g)} g · Grasas ${N.fmt(n.grasas_g)} g`;
+      } else if (deUnDia) {
+        const metas = N.NUTRIENTES.filter((d) => d.grupo !== "macros" && d.ref === "meta" && r[d.k]);
+        const llegaste = metas.filter((d) => n[d.k] >= r[d.k]).length;
+        resumen = `Vitaminas y minerales · llegaste a ${llegaste} de ${metas.length}`;
+      } else {
+        resumen = "Vitaminas y minerales de esta comida";
+      }
+      return `<div class="ac ac-${s.k}">
+        <button class="ac-cab" onclick="toggleDesplegable('${k}')" aria-expanded="${abierto}">
+          <span class="ac-icono">${icon(s.k === "macro" ? "bolt" : "leaf", "#FFFFFF", 22, 2.2)}</span>
+          <span class="ac-txt"><span class="ac-titulo">${s.nombre}</span><span class="ac-resumen">${resumen}</span></span>
+          <span class="ac-ver">${abierto ? "Cerrar" : "Ver"} ${icon(abierto ? "up" : "down", "#FFFFFF", 16, 2.6)}</span>
+        </button>
+        ${abierto ? `<div class="ac-cuerpo"><div class="ac-bajada">${s.bajada}</div>${s.html}</div>` : ""}
+      </div>`;
+    }).join("");
+  }
+
+  // Lo personalizado del día: cada condición de salud con su número de hoy,
+  // el consejo de actividad si se mueve poco, y lo que le dijo el médico.
+  function consejos(n) {
+    const s = perfil.salud, r = refs(), t = [];
+    const de = (k, ref, u) => `<b>${N.fmt(n[k])} ${u}</b> de ${N.fmt(ref)} ${u}`;
+    if (s.presion) t.push({ ic: "heart", titulo: "Presión alta", texto: `Sodio hoy: ${de("sodio_mg", 1500, "mg")} como máximo. Ojo con fiambres, quesos, snacks y caldos.` });
+    if (s.azucar) t.push({ ic: "heart", titulo: "Azúcar", texto: `Azúcares hoy: <b>${N.fmt(n.azucares_g)} g</b>. Fibra: ${de("fibra_g", r.fibra_g, "g")} (la fibra ayuda).` });
+    if (s.colesterol) {
+      const pct = n.kcal > 0 ? ((n.grasas_saturadas_g * 9) / n.kcal) * 100 : 0;
+      t.push({ ic: "heart", titulo: "Colesterol", texto: `Grasas saturadas: <b>${N.fmt(pct)}%</b> de las calorías de hoy (conviene menos de 10%).` });
+    }
+    if (s.huesos) t.push({ ic: "heart", titulo: "Huesos", texto: `Calcio: ${de("calcio_mg", r.calcio_mg, "mg")}. Vitamina D: ${de("vitamina_d_ug", r.vitamina_d_ug, "µg")}.` });
+    if (s.anemia) t.push({ ic: "heart", titulo: "Anemia", texto: `Hierro: ${de("hierro_mg", r.hierro_mg, "mg")}. Comerlo con algo de vitamina C (cítricos, tomate) ayuda a absorberlo.` });
+    if (s.anticoagulante) t.push({ ic: "heart", titulo: "Anticoagulante", texto: `Vitamina K hoy: <b>${N.fmt(n.vitamina_k_ug)} µg</b>. Lo importante es comer parecido todos los días (verduras de hoja, brócoli) y no cambiar de golpe. Consultalo con tu médico.` });
+    if (s.rinon) t.push({ ic: "heart", titulo: "Riñón", texto: `Hoy: potasio <b>${N.fmt(n.potasio_mg)} mg</b>, fósforo <b>${N.fmt(n.fosforo_mg)} mg</b>, proteínas <b>${N.fmt(n.proteinas_g)} g</b>. Tu médico te dice cuánto de cada uno.` });
+    if (perfil.actividad === "poca" || perfil.actividad === "algo") {
+      t.push({ ic: "walk", titulo: "Moverse", texto: "La OMS recomienda al menos 150 minutos por semana de actividad moderada, como caminar a paso ligero (por ejemplo, 30 minutos, 5 días), y ejercicios de fuerza 2 días por semana. Antes de empezar algo nuevo, consultalo con tu médico." });
+    }
+    if (perfil.medico && perfil.medico.trim()) t.push({ ic: "note", titulo: "Lo que te dijo tu médico", texto: esc(perfil.medico.trim()) });
+    return t;
+  }
+  function tarjetaParaVos(n) {
+    const t = consejos(n);
+    if (!t.length) return "";
+    return `<div class="card vos">
+      <div class="title" style="color:var(--vos);">Para vos</div>
+      ${t.map((x) => `<div class="vos-item">
+        <span class="vos-punto">${icon(x.ic, "#FFFFFF", 18, 2.2)}</span>
+        <div><div style="font-weight:800;margin-bottom:3px;">${x.titulo}</div><div class="small" style="line-height:1.45;">${x.texto}</div></div>
+      </div>`).join("")}
+    </div>`;
   }
 
   function comidaHTML(c) {
     const abierta = comidaAbierta === c.id;
-    let h = `<div class="comida">
+    let h = `<div class="comida" style="${abierta ? "border-color:var(--amber);" : ""}">
       <button class="comida-top" onclick="toggleComida('${c.id}')" aria-expanded="${abierta}">
         <span class="comida-txt">${esc(c.resumen || "Comida")}</span>
         <span class="comida-kcal">${kcal(c.n.kcal)} <span class="xs dim" style="font-weight:400;">kcal</span></span>
-        ${icon(abierta ? "up" : "down", "var(--textDim)", 18)}
+        ${icon(abierta ? "up" : "down", "var(--textDim)", 20, 2.2)}
       </button>`;
     if (abierta) {
       h += `<div class="comida-detalle">
         ${N.seccionesPlanas(c.n, refs(), { compacta: true })}
-        <div style="margin-top:14px;">
+        <div class="col gap10" style="margin-top:16px;">
           ${borrarPendiente === c.id
-            ? `<div class="row gap10"><button class="btn-secondary btn-peligro" style="flex:1;" onclick="borrarComida('${c.id}')">Sí, borrarla</button><button class="btn-secondary" style="flex:1;" onclick="cancelarBorrar()">No</button></div>`
-            : `<button class="btn-secondary" onclick="pedirBorrar('${c.id}')">${icon("trash", "var(--textDim)", 16)} <span style="vertical-align:3px;">Borrar esta comida</span></button>`}
+            ? `<div class="small" style="font-weight:700;">¿Seguro que querés borrar esta comida?</div>
+               <button class="btn btn-peligro" onclick="borrarComida('${c.id}')">${icon("trash", "var(--rust)", 20)} Sí, borrarla</button>
+               <button class="btn btn-secondary" onclick="cancelarBorrar()">No, dejarla</button>`
+            : `<button class="btn btn-secondary" onclick="toggleComida('${c.id}')">${icon("up", "var(--text)", 20, 2.2)} Cerrar</button>
+               <button class="btn btn-peligro" onclick="pedirBorrar('${c.id}')">${icon("trash", "var(--rust)", 20)} Borrar esta comida</button>`}
         </div>
       </div>`;
     }
@@ -279,12 +490,12 @@
 
   function nav() {
     const item = (p, ic, label) =>
-      `<button class="${pantalla === p ? "on" : ""}" onclick="irA('${p}')">${icon(ic, pantalla === p ? "var(--amber)" : "var(--textDim)")}<span>${label}</span></button>`;
+      `<button class="${pantalla === p ? "on" : ""}" onclick="irA('${p}')">${icon(ic, pantalla === p ? "var(--amber)" : "var(--textDim)", 26)}<span>${label}</span></button>`;
     return `<div class="nav">
       ${item("hoy", "home", "Hoy")}
       <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
-        <button class="cap" onclick="abrirCarga()" aria-label="Agregar comida">${icon("plus", "#1A1300", 28, 2.2)}</button>
-        <span style="font-size:12px;color:var(--amber);font-weight:700;">Agregar</span>
+        <button class="cap" onclick="abrirCarga()" aria-label="Agregar comida">${icon("plus", "#1A1300", 30, 2.4)}</button>
+        <span style="font-size:14px;color:var(--amber);font-weight:800;">Agregar</span>
       </div>
       ${item("historial", "list", "Historial")}
     </div>`;
@@ -292,19 +503,21 @@
 
   // ---------- PANTALLA: BIENVENIDA ----------
   function pantallaBienvenida() {
-    return `<div class="screen" style="max-width:480px;margin-top:30px;">
-      <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;margin-bottom:6px;">Nutrientes</div>
-      <div style="font-size:28px;font-weight:700;margin-bottom:10px;">¡Hola!</div>
-      <div class="small dim" style="margin-bottom:22px;line-height:1.5;">Contale a la app qué comiste, con una foto o con tus palabras, y te dice las calorías, las proteínas, las grasas, los carbohidratos, las vitaminas y los minerales.<br><br>Para saber cuánto te conviene comer de cada cosa por día necesita dos datos:</div>
+    return `<div class="screen" style="max-width:480px;margin-top:20px;">
+      <div class="xs" style="letter-spacing:3px;color:var(--amber);text-transform:uppercase;margin-bottom:6px;font-weight:800;">Nutrientes</div>
+      <div style="font-size:30px;font-weight:800;margin-bottom:10px;">¡Hola!</div>
+      <div class="small dim" style="margin-bottom:22px;line-height:1.5;">Contale a la app qué comiste, con una foto o con tus palabras, y te dice las calorías, las proteínas, las grasas, los carbohidratos, las vitaminas y los minerales.<br><br>Para empezar necesita tres datos:</div>
       <div class="card">
-        ${camposPerfil(perfil)}
-        ${perfilMsg && perfilMsg.tipo === "error" ? `<div class="small" style="color:var(--rust);margin:-4px 0 14px;">${esc(perfilMsg.texto)}</div>` : ""}
-        <button class="btn-primary big-btn" style="width:100%;" onclick="guardarDatos(true)">Empezar</button>
+        ${camposBasicos(perfil)}
+        ${perfilMsg && perfilMsg.tipo === "error" ? `<div class="small" style="color:var(--rust);margin:0 0 14px;font-weight:700;">${esc(perfilMsg.texto)}</div>` : ""}
+        <button class="btn btn-primary" onclick="empezar()">Empezar</button>
       </div>
+      <div class="small dim" style="line-height:1.5;">Después, en <b>Mis datos</b>, podés sumar tu peso, cuánto te movés y tu salud, para que todo sea más a tu medida.</div>
+      ${pie()}
     </div>`;
   }
 
-  function camposPerfil(p) {
+  function camposBasicos(p) {
     return `<div style="margin-bottom:14px;"><label class="label" for="pf-nombre">Tu nombre (si querés)</label><input id="pf-nombre" type="text" maxlength="40" value="${esc(p.nombre)}"></div>
       <div class="row gap12" style="margin-bottom:16px;">
         <div style="flex:1;"><label class="label" for="pf-edad">Edad</label><input id="pf-edad" type="text" inputmode="numeric" placeholder="65" value="${esc(p.edad || "")}"></div>
@@ -326,200 +539,248 @@
 
     let h = `<div class="screen">
       <div class="topbar">
-        <div>
-          <div style="font-size:22px;font-weight:700;">${perfil.nombre ? `Hola, ${esc(perfil.nombre)}` : "Hoy"}</div>
+        <div style="min-width:0;">
+          <div style="font-size:24px;font-weight:800;">${perfil.nombre ? `Hola, ${esc(perfil.nombre)}` : "Hoy"}</div>
           <div class="small dim">${esc(fechaLarga.charAt(0).toUpperCase() + fechaLarga.slice(1))}</div>
         </div>
-        <button class="icon-btn" onclick="irA('ajustes')" aria-label="Ajustes">${icon("gear", "var(--textDim)", 23)}</button>
+        <button class="btn-datos" onclick="irA('datos')">${icon("user", "var(--text)", 20, 2.2)} Mis datos</button>
       </div>`;
 
     h += `<div class="card">
       <div class="stat-label">Calorías de hoy</div>
       <div class="row" style="align-items:baseline;gap:8px;margin-top:8px;">
-        <div class="hero-num">${kcal(n.kcal)}</div><div class="dim" style="font-size:18px;font-weight:700;">kcal</div>
+        <div class="hero-num">${kcal(n.kcal)}</div><div class="dim" style="font-size:20px;font-weight:800;">kcal</div>
       </div>
-      <div class="small dim" style="margin-top:6px;">${lista.length ? `en ${lista.length} comida${lista.length !== 1 ? "s" : ""}` : "Todavía no cargaste nada hoy."}</div>
+      ${barraCalorias(n.kcal)}
+      <div class="small dim" style="margin-top:8px;">${lista.length ? `en ${lista.length} comida${lista.length !== 1 ? "s" : ""}` : "Todavía no cargaste nada hoy."}</div>
       ${repartoHTML(n)}
     </div>`;
 
-    if (!lista.length) {
-      h += `<button class="btn-primary big-btn" style="width:100%;margin-bottom:16px;" onclick="abrirCarga()">${icon("plus", "#1A1300", 20, 2.2)} Cargar lo que comí</button>`;
-      return h + `</div>`;
+    if (!datosCompletos()) {
+      h += `<div class="card" style="border:2px dashed var(--amber);">
+        <div class="title" style="margin-bottom:6px;">Hacé la app más tuya</div>
+        <div class="small dim" style="line-height:1.45;margin-bottom:14px;">Con tu peso, tu altura y cuánto te movés, te dice cuántas calorías necesitás por día. Y si contás algo de tu salud, te avisa qué mirar.</div>
+        <button class="btn btn-secondary" onclick="irA('datos')">${icon("user", "var(--text)", 20, 2.2)} Completar mis datos</button>
+      </div>`;
     }
 
-    h += `<div class="title" style="margin:6px 0 10px;">Lo que comiste</div>
-      <div class="col gap8" style="margin-bottom:12px;">${lista.map(comidaHTML).join("")}</div>
-      <button class="btn-secondary big-btn" style="width:100%;margin-bottom:24px;border-color:var(--amber);color:var(--amber);font-weight:700;" onclick="abrirCarga()">${icon("plus", "var(--amber)", 20, 2.2)} Agregar otra comida</button>`;
+    if (!lista.length) {
+      h += `<button class="btn btn-primary" style="margin-bottom:16px;" onclick="abrirCarga()">${icon("plus", "#1A1300", 24, 2.4)} Cargar lo que comí</button>`;
+      h += tarjetaParaVos(n);
+      return h + pie() + `</div>`;
+    }
 
-    h += `<div class="title" style="margin:0 0 10px;">Lo que te aportó</div>`;
-    h += tarjetasNutrientes(n);
-    h += `<div class="xs dim" style="line-height:1.5;padding:0 4px 8px;">${esc(N.notaReferencias(perfil.edad, perfil.sexo))}</div>`;
-    return h + `</div>`;
+    // Orden: lo que comió → agregar más → lo que le toca mirar → el detalle.
+    h += `<div class="seccion-titulo">Lo que comiste</div>
+      <div class="col gap8" style="margin-bottom:12px;">${lista.map(comidaHTML).join("")}</div>
+      <button class="btn btn-primary" style="margin-bottom:16px;" onclick="abrirCarga()">${icon("plus", "#1A1300", 24, 2.4)} Agregar otra comida</button>`;
+
+    h += tarjetaParaVos(n);
+
+    h += `<div class="seccion-titulo">Lo que te aportó</div>`;
+    h += desplegables(n, "hoy", true);
+    h += `<div class="xs dim" style="line-height:1.5;padding:6px 4px 0;">${esc(N.notaReferencias(perfil.edad, perfil.sexo))}</div>`;
+    return h + pie() + `</div>`;
   }
 
   // ---------- PANTALLA: HISTORIAL ----------
   function pantallaHistorial() {
     const dias = diasConComidas();
     let h = `<div class="screen">
-      <div class="topbar">
-        <div style="font-size:22px;font-weight:700;">Historial</div>
-        <button class="icon-btn" onclick="irA('ajustes')" aria-label="Ajustes">${icon("gear", "var(--textDim)", 23)}</button>
-      </div>`;
+      <div class="topbar">${botonVolver("Volver a Hoy")}</div>
+      <div style="font-size:26px;font-weight:800;margin-bottom:14px;">Historial</div>`;
 
     if (!dias.length) {
       h += `<div class="card" style="text-align:center;padding:30px 20px;"><div class="small dim">Todavía no cargaste ninguna comida.</div></div>`;
-      return h + `</div>`;
+      return h + pie() + `</div>`;
     }
 
     // Las vitaminas y los minerales se miran mejor en promedio: un día solo
     // no dice mucho, una semana sí.
     const prom = promedioSemana();
     if (prom) {
-      h += `<div class="card" style="border-color:var(--meta);">
+      h += `<div class="card" style="border:2px solid var(--meta);">
         <div class="stat-label">Promedio por día · última semana</div>
         <div class="row" style="align-items:baseline;gap:8px;margin-top:8px;">
-          <div style="font-size:36px;font-weight:700;line-height:1;">${kcal(prom.n.kcal)}</div><div class="dim" style="font-weight:700;">kcal</div>
+          <div style="font-size:40px;font-weight:800;line-height:1;">${kcal(prom.n.kcal)}</div><div class="dim" style="font-weight:800;">kcal</div>
         </div>
-        <div class="xs dim" style="margin-top:6px;">Sobre ${prom.dias} día${prom.dias !== 1 ? "s" : ""} con comidas cargadas, sin contar hoy.</div>
+        ${barraCalorias(prom.n.kcal)}
+        <div class="xs dim" style="margin-top:8px;">Sobre ${prom.dias} día${prom.dias !== 1 ? "s" : ""} con comidas cargadas, sin contar hoy.</div>
         ${repartoHTML(prom.n)}
-        <button class="btn-secondary" style="width:100%;margin-top:16px;" onclick="togglePromedio()">${promedioAbierto ? "Ocultar" : "Ver"} macro y micronutrientes</button>
-        ${promedioAbierto ? N.seccionesPlanas(prom.n, refs()) : ""}
+        <div style="margin-top:16px;">${desplegables(prom.n, "prom", true)}</div>
       </div>`;
     }
 
-    h += `<div class="col gap10">`;
+    h += `<div class="seccion-titulo">Día por día</div><div class="col gap10">`;
     dias.forEach((f) => {
       const lista = comidasDe(f);
       const n = totalDe(lista);
       const abierto = !!diasAbiertos[f];
-      h += `<div class="comida">
+      h += `<div class="comida" style="${abierto ? "border-color:var(--amber);" : ""}">
         <button class="comida-top" onclick="toggleDia('${f}')" aria-expanded="${abierto}">
-          <span class="comida-txt"><b>${esc(formatFecha(f))}</b><br><span class="xs dim">${lista.length} comida${lista.length !== 1 ? "s" : ""} · P ${N.fmt(n.proteinas_g)} · C ${N.fmt(n.carbohidratos_g)} · G ${N.fmt(n.grasas_g)} g</span></span>
+          <span class="comida-txt"><b>${esc(formatFecha(f))}</b><br><span class="xs dim">${lista.length} comida${lista.length !== 1 ? "s" : ""}</span></span>
           <span class="comida-kcal">${kcal(n.kcal)} <span class="xs dim" style="font-weight:400;">kcal</span></span>
-          ${icon(abierto ? "up" : "down", "var(--textDim)", 18)}
+          ${icon(abierto ? "up" : "down", "var(--textDim)", 20, 2.2)}
         </button>`;
       if (abierto) {
         h += `<div class="comida-detalle">
           <div class="col gap8" style="margin-bottom:12px;">${lista.map(comidaHTML).join("")}</div>
-          <button class="btn-secondary" style="width:100%;" onclick="abrirCarga('${f}')">${icon("plus", "var(--text)", 16, 2)} <span style="vertical-align:3px;">Agregar una comida a este día</span></button>
-          ${N.seccionesPlanas(n, refs())}
+          <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="abrirCarga('${f}')">${icon("plus", "var(--text)", 20, 2.4)} Agregar una comida a este día</button>
+          ${desplegables(n, "dia-" + f, true)}
         </div>`;
       }
       h += `</div>`;
     });
-    return h + `</div></div>`;
+    return h + `</div>` + pie() + `</div>`;
   }
 
-  // ---------- PANTALLA: AJUSTES ----------
-  function pantallaAjustes() {
+  // ---------- PANTALLA: MIS DATOS ----------
+  function pantallaDatos() {
+    const p = perfil;
     let h = `<div class="screen">
-      <div class="topbar">
-        <button class="row" style="align-items:center;gap:4px;margin-left:-8px;" onclick="irA('hoy')">${icon("back", "var(--textDim)", 22)}<span style="font-size:22px;font-weight:700;">Ajustes</span></button>
-      </div>`;
+      <div class="topbar">${botonVolver("Volver a Hoy")}</div>
+      <div style="font-size:26px;font-weight:800;margin-bottom:6px;">Mis datos</div>
+      <div class="small dim" style="margin-bottom:16px;line-height:1.45;">Con esto la app calcula cuánto necesitás por día y te avisa qué mirar. Completá lo que sepas y tocá <b>Guardar</b> abajo de todo.</div>`;
 
     h += `<div class="card">
-      <div class="title" style="margin-bottom:12px;">Tus datos</div>
-      ${camposPerfil(perfil)}
-      <div class="xs dim" style="margin:-4px 0 14px;line-height:1.45;">La edad y el sexo cambian cuánto se recomienda por día: por ejemplo, desde los 51 años las mujeres necesitan más calcio y menos hierro.</div>
-      <button class="btn-secondary" onclick="guardarDatos(false)">Guardar</button>
-      ${perfilMsg ? `<div class="small" style="margin-top:12px;color:${perfilMsg.tipo === "error" ? "var(--rust)" : "var(--sage)"};">${esc(perfilMsg.texto)}</div>` : ""}
+      <div class="title" style="margin-bottom:12px;">Sobre vos</div>
+      ${camposBasicos(p)}
+      <div class="row gap12">
+        <div style="flex:1;"><label class="label" for="pf-peso">Peso (kg)</label><input id="pf-peso" type="text" inputmode="decimal" placeholder="68" value="${esc(p.peso || "")}"></div>
+        <div style="flex:1;"><label class="label" for="pf-altura">Altura (cm)</label><input id="pf-altura" type="text" inputmode="decimal" placeholder="160" value="${esc(p.altura || "")}"></div>
+      </div>
     </div>`;
 
     h += `<div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center;">
+      <div class="title" style="margin-bottom:4px;">¿Cuánto te movés?</div>
+      <div class="small dim" style="margin-bottom:12px;">Tocá la que más se parezca a una semana normal.</div>
+      ${ACTIVIDADES.map((a) => `<button class="opcion ${p.actividad === a.k ? "on" : ""}" onclick="elegirActividad('${a.k}')" aria-pressed="${p.actividad === a.k}">
+        <span class="marca redonda">${p.actividad === a.k ? icon("check", "#FFFFFF", 16, 3) : ""}</span>
+        <span><span style="font-weight:800;display:block;">${a.nombre}</span><span class="small dim">${a.detalle}</span></span>
+      </button>`).join("")}
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:4px;">Tu salud</div>
+      <div class="small dim" style="margin-bottom:12px;">Marcá lo que tengas. Sirve para avisarte qué mirar en lo que comés.</div>
+      ${SALUD.map((s) => `<button class="opcion ${p.salud[s.k] ? "on" : ""}" onclick="marcarSalud('${s.k}')" aria-pressed="${!!p.salud[s.k]}">
+        <span class="marca">${p.salud[s.k] ? icon("check", "#FFFFFF", 16, 3) : ""}</span>
+        <span style="font-weight:700;">${s.nombre}</span>
+      </button>`).join("")}
+    </div>`;
+
+    h += `<div class="card">
+      <div class="title" style="margin-bottom:4px;">Lo que te dijo tu médico</div>
+      <div class="small dim" style="margin-bottom:10px;">Si te dio alguna indicación, anotala acá y te la recuerda todos los días.</div>
+      <textarea id="pf-medico" rows="3" maxlength="400" placeholder="Ej: no más de una porción de queso por día">${esc(p.medico)}</textarea>
+    </div>`;
+
+    h += `${perfilMsg ? `<div class="card" style="border:2px solid ${perfilMsg.tipo === "error" ? "var(--rust)" : "var(--sage)"};font-weight:700;color:${perfilMsg.tipo === "error" ? "var(--rust)" : "var(--sage)"};">${esc(perfilMsg.texto)}</div>` : ""}
+      <button class="btn btn-sage" style="margin-bottom:24px;" onclick="guardarDatos()">${icon("check", "#FFFFFF", 22, 2.6)} Guardar mis datos</button>`;
+
+    const ref = caloriasDelDia();
+    if (ref) h += `<div class="card" style="border:2px solid var(--sage);"><div class="small" style="line-height:1.45;">Con tus datos, necesitás unas <b>${kcal(ref)} kcal por día</b>. Es una estimación: puede variar un 10% para cada lado.</div></div>`;
+
+    h += `<div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center;gap:12px;">
         <div class="title">Pantalla</div>
-        <button class="btn-secondary" onclick="cambiarTema()">${perfil.tema === "dark" ? "Pasar a clara" : "Pasar a oscura"}</button>
+        <button class="btn-datos" onclick="cambiarTema()">${perfil.tema === "dark" ? "Pasar a clara" : "Pasar a oscura"}</button>
       </div>
     </div>`;
 
     h += `<div class="card">
       <div class="title" style="margin-bottom:8px;">Copia de seguridad</div>
       <div class="small dim" style="margin-bottom:12px;line-height:1.45;">Lo que cargás queda guardado solo en este celular. Si cambiás de celular o se borran los datos del navegador, se pierde. Bajá una copia cada tanto.</div>
-      <div class="row gap10" style="flex-wrap:wrap;">
-        <button class="btn-secondary" onclick="exportar()">Descargar copia</button>
-        <button class="btn-secondary" onclick="document.getElementById('archivo-respaldo').click()">Restaurar copia</button>
+      <div class="col gap10">
+        <button class="btn btn-secondary" onclick="exportar()">Descargar copia</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('archivo-respaldo').click()">Restaurar copia</button>
         <input id="archivo-respaldo" type="file" accept="application/json" style="display:none" onchange="importar(this)">
       </div>
-      ${importMsg ? `<div class="small" style="margin-top:10px;">${esc(importMsg)}</div>` : ""}
+      ${importMsg ? `<div class="small" style="margin-top:10px;font-weight:700;">${esc(importMsg)}</div>` : ""}
     </div>`;
 
     h += `<div class="card">
       <div class="title" style="margin-bottom:8px;color:var(--rust);">Borrar todo</div>
       <div class="small dim" style="margin-bottom:12px;">Borra todas las comidas y tus datos. No se puede deshacer.</div>
       ${confirmarReset
-        ? `<div class="row gap10"><button class="btn-secondary btn-peligro" style="flex:1;" onclick="borrarTodo()">Sí, borrar todo</button><button class="btn-secondary" style="flex:1;" onclick="cancelarReset()">Cancelar</button></div>`
-        : `<button class="btn-secondary btn-peligro" onclick="pedirReset()">Borrar todo</button>`}
+        ? `<div class="col gap10"><button class="btn btn-peligro" onclick="borrarTodo()">Sí, borrar todo</button><button class="btn btn-secondary" onclick="cancelarReset()">No, cancelar</button></div>`
+        : `<button class="btn btn-peligro" onclick="pedirReset()">Borrar todo</button>`}
     </div>`;
 
-    h += `<div class="xs dim" style="line-height:1.5;padding:0 4px 8px;">${esc(N.notaReferencias(perfil.edad, perfil.sexo))}</div>`;
-    h += `<div class="xs dim" style="text-align:center;padding:8px 0;">${VERSION}</div>`;
-    return h + `</div>`;
+    h += `<div class="xs dim" style="line-height:1.5;padding:0 4px;">${esc(N.notaReferencias(perfil.edad, perfil.sexo))}</div>`;
+    return h + pie() + `</div>`;
   }
 
-  // ---------- HOJA DE CARGA ----------
-  function hojaCarga() {
-    let h = `<div class="sheet-backdrop" onclick="cerrarCarga()"></div><div class="sheet"><div class="sheet-in"><div class="grab"></div>`;
+  // ---------- PANTALLA: CARGAR UNA COMIDA ----------
+  function pantallaCarga() {
     const fecha = fechaCarga || hoyISO();
+    let h = `<div class="carga"><div class="screen">
+      <div class="topbar">${botonVolver()}</div>`;
 
     if (resultado) {
       const n = resultado.n;
+      const ref = caloriasDelDia();
       // Primero la frase que entendió el modelo: un malentendido se ve antes
       // que cualquier número.
       h += `<div class="stat-label" style="margin-bottom:6px;">Esto entendí</div>
-        <div style="font-size:17px;line-height:1.4;margin-bottom:16px;">${esc(resultado.resumen)}</div>
-        <div class="row" style="align-items:baseline;gap:8px;">
-          <div style="font-size:44px;font-weight:700;line-height:1;letter-spacing:-1px;">${kcal(n.kcal)}</div><div class="dim" style="font-weight:700;">kcal</div>
+        <div style="font-size:19px;line-height:1.4;margin-bottom:16px;font-weight:600;">${esc(resultado.resumen)}</div>
+        <div class="card">
+          <div class="row" style="align-items:baseline;gap:8px;">
+            <div class="hero-num" style="font-size:48px;">${kcal(n.kcal)}</div><div class="dim" style="font-weight:800;font-size:18px;">kcal</div>
+          </div>
+          ${ref ? `<div class="small dim" style="margin-top:6px;">Es el ${Math.round((n.kcal / ref) * 100)}% de lo que necesitás en todo el día.</div>` : ""}
+          ${repartoHTML(n)}
         </div>
-        ${repartoHTML(n)}
-        <div class="xs dim" style="margin-top:14px;">Los porcentajes son de lo recomendado para todo el día.</div>
-        ${N.seccionesPlanas(n, refs())}
-        <div style="margin:18px 0 16px;">
+        <div class="small dim" style="margin:0 0 10px;">Los porcentajes de abajo son de lo recomendado para todo el día.</div>
+        ${desplegables(n, "res", false)}
+        <div class="card" style="margin-top:6px;">
           <label class="label" for="fecha-carga">¿Qué día la comiste?</label>
           <input id="fecha-carga" type="date" max="${hoyISO()}" value="${fecha}">
         </div>
-        ${errorMsg ? `<div class="small" style="color:var(--rust);margin-bottom:12px;">${esc(errorMsg)}</div>` : ""}
-        <div class="small dim" style="margin-bottom:14px;">¿Algo no está bien? Descartala y contala de nuevo con más detalle.</div>
-        <div class="row gap10">
-          <button class="btn-secondary big-btn" style="width:58px;flex-shrink:0;" onclick="descartar()" aria-label="Descartar">${icon("close", "var(--textDim)", 20)}</button>
-          <button class="btn-sage big-btn" style="flex:1;" onclick="guardarResultado()">Guardar comida</button>
+        ${errorMsg ? `<div class="small" style="color:var(--rust);margin-bottom:12px;font-weight:700;">${esc(errorMsg)}</div>` : ""}
+        <div class="col gap10">
+          <button class="btn btn-sage" onclick="guardarResultado()">${icon("check", "#FFFFFF", 22, 2.6)} Guardar comida</button>
+          <button class="btn btn-secondary" onclick="descartar()">${icon("close", "var(--text)", 20, 2.4)} Está mal, contarla de nuevo</button>
         </div>`;
-      return h + `</div></div>`;
+      return h + pie() + `</div></div>`;
     }
 
-    h += `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div>
-          <div style="font-size:20px;font-weight:700;">¿Qué comiste?</div>
-          ${fecha !== hoyISO() ? `<div class="small" style="color:var(--amber);">Para el día: ${esc(formatFecha(fecha))}</div>` : ""}
-        </div>
-        <button class="icon-btn" onclick="cerrarCarga()" aria-label="Cerrar">${icon("close", "var(--textDim)", 22)}</button>
-      </div>
-      <textarea id="dictado" rows="4" placeholder="Ej: almorcé dos empanadas de carne al horno y una mandarina. Tomé un café con leche con una cucharadita de azúcar." style="resize:vertical;margin-bottom:12px;">${esc(borrador)}</textarea>
+    h += `<div style="font-size:26px;font-weight:800;margin-bottom:4px;">¿Qué comiste?</div>
+      ${fecha !== hoyISO() ? `<div class="small" style="color:var(--amber);font-weight:800;margin-bottom:8px;">Para el día: ${esc(formatFecha(fecha))}</div>` : ""}
+      <div class="small dim" style="margin-bottom:12px;line-height:1.45;">Escribilo, dictalo o sacale una foto al plato. Cuanto más detalle (cantidades, si era frito o al horno), mejor.</div>
+      <textarea id="dictado" rows="4" placeholder="Ej: almorcé dos empanadas de carne al horno y una mandarina. Tomé un café con leche con una cucharadita de azúcar." style="resize:vertical;margin-bottom:12px;font-size:17px;">${esc(borrador)}</textarea>
       <input id="archivo-foto" type="file" accept="image/*" capture="environment" style="display:none" onchange="elegirFoto(this)">`;
 
     if (foto) {
-      h += `<div class="row gap12" style="align-items:center;background:var(--surfaceRaised);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px;">
-        <img src="${foto.dataUrl}" alt="Foto de la comida" style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;">
-        <div class="small" style="flex:1;">Foto lista</div>
-        <button class="icon-btn" onclick="quitarFoto()" aria-label="Quitar foto">${icon("close", "var(--textDim)", 20)}</button>
+      h += `<div class="row gap12" style="align-items:center;background:var(--surface);border:2px solid var(--sage);border-radius:14px;padding:10px 12px;margin-bottom:12px;">
+        <img src="${foto.dataUrl}" alt="Foto de la comida" style="width:60px;height:60px;border-radius:10px;object-fit:cover;flex-shrink:0;">
+        <div class="small" style="flex:1;font-weight:700;">Foto lista ${icon("check", "var(--sage)", 18, 3)}</div>
+        <button class="btn-datos" onclick="quitarFoto()">Quitar</button>
       </div>`;
     }
 
-    if (errorMsg) h += `<div class="small" style="color:var(--rust);margin-bottom:12px;">${esc(errorMsg)}</div>`;
+    if (errorMsg) h += `<div class="small" style="color:var(--rust);margin-bottom:12px;font-weight:700;">${esc(errorMsg)}</div>`;
 
     h += `<div class="row gap10" style="margin-bottom:10px;">
-        <button class="btn-secondary big-btn" style="flex:1;" onclick="enfocarDictado()">${icon("mic", "var(--text)", 20)} Dictar</button>
-        <button class="btn-secondary big-btn" style="flex:1;" onclick="document.getElementById('archivo-foto').click()">${icon("camera", "var(--text)", 20)} ${foto ? "Otra foto" : "Foto"}</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="enfocarDictado()">${icon("mic", "var(--text)", 22)} Dictar</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('archivo-foto').click()">${icon("camera", "var(--text)", 22)} ${foto ? "Otra foto" : "Foto"}</button>
       </div>
-      <button class="btn-primary big-btn" style="width:100%;" onclick="analizar()" ${analizando ? "disabled" : ""}>${analizando ? '<span class="spin">↻</span> Analizando…' : "Ver qué tiene"}</button>
-      <div class="xs dim" style="margin-top:10px;line-height:1.45;">Para dictar, tocá el micrófono del teclado. Cuanto más detalle (cantidades, si era frito o al horno), mejor la cuenta.</div>`;
+      <button class="btn btn-primary" onclick="analizar()" ${analizando ? "disabled" : ""}>${analizando ? '<span class="spin">↻</span> Analizando…' : "Ver qué tiene"}</button>
+      <div class="xs dim" style="margin-top:12px;line-height:1.45;">Para dictar: tocá "Dictar" y después el micrófono del teclado.</div>`;
     return h + `</div></div>`;
   }
 
   // ---------- acciones ----------
-  window.irA = function (p) { pantalla = p; hojaAbierta = false; perfilMsg = null; confirmarReset = false; window.scrollTo(0, 0); render(); };
+  window.irA = function (p) {
+    guardarBorrador();
+    pantalla = p; cargaAbierta = false; perfilMsg = null; confirmarReset = false;
+    window.scrollTo(0, 0);
+    render();
+  };
+  window.volver = function () { volverUnPaso(); window.scrollTo(0, 0); };
   window.toggleComida = function (id) { comidaAbierta = comidaAbierta === id ? null : id; borrarPendiente = null; render(); };
   window.toggleDia = function (f) { diasAbiertos = { ...diasAbiertos, [f]: !diasAbiertos[f] }; render(); };
-  window.togglePromedio = function () { promedioAbierto = !promedioAbierto; render(); };
+  window.toggleDesplegable = function (k) { abiertos = { ...abiertos, [k]: !abiertos[k] }; render(); };
   window.pedirBorrar = function (id) { borrarPendiente = id; render(); };
   window.cancelarBorrar = function () { borrarPendiente = null; render(); };
   window.borrarComida = function (id) {
@@ -530,43 +791,85 @@
   };
 
   window.abrirCarga = function (fecha) {
-    hojaAbierta = true;
+    cargaAbierta = true;
     fechaCarga = esFecha(fecha) ? fecha : null;
     errorMsg = "";
     render();
-    // Foco diferido: el textarea recién existe después de redibujar.
-    setTimeout(function () {
-      const t = document.getElementById("dictado");
-      if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
-    }, 50);
+    window.scrollTo(0, 0);
   };
-  window.cerrarCarga = function () { guardarBorrador(); hojaAbierta = false; render(); };
   window.enfocarDictado = function () { const t = document.getElementById("dictado"); if (t) t.focus(); };
   window.quitarFoto = function () { foto = null; render(); };
   window.descartar = function () { resultado = null; errorMsg = ""; render(); };
 
-  window.guardarDatos = function (esBienvenida) {
-    const nombre = document.getElementById("pf-nombre").value.trim().slice(0, 40);
-    const edad = Math.round(toNumber(document.getElementById("pf-edad").value));
-    const sexo = document.getElementById("pf-sexo").value === "masculino" ? "masculino" : "femenino";
-    if (!(edad >= EDAD_MIN && edad <= EDAD_MAX)) {
-      perfil = { ...perfil, nombre, sexo };
+  function leerBasicos() {
+    return {
+      nombre: document.getElementById("pf-nombre").value.trim().slice(0, 40),
+      edad: Math.round(toNumber(document.getElementById("pf-edad").value)),
+      sexo: document.getElementById("pf-sexo").value === "masculino" ? "masculino" : "femenino",
+    };
+  }
+  window.empezar = function () {
+    const b = leerBasicos();
+    if (!(b.edad >= EDAD_MIN && b.edad <= EDAD_MAX)) {
+      perfil = { ...perfil, nombre: b.nombre, sexo: b.sexo };
       perfilMsg = { tipo: "error", texto: `Poné tu edad en años (entre ${EDAD_MIN} y ${EDAD_MAX}).` };
       render();
       return;
     }
-    perfil = { ...perfil, nombre, edad, sexo, listo: true };
+    perfil = { ...perfil, ...b, listo: true };
     guardarPerfil();
-    perfilMsg = esBienvenida ? null : { tipo: "ok", texto: "Listo, guardado." };
+    perfilMsg = null;
     render();
   };
-  window.cambiarTema = function () { perfil = { ...perfil, tema: perfil.tema === "dark" ? "light" : "dark" }; guardarPerfil(); aplicarTema(); render(); };
-  window.pedirReset = function () { confirmarReset = true; render(); };
-  window.cancelarReset = function () { confirmarReset = false; render(); };
+  // Actividad y salud se guardan al tocarlas: son botones grandes y el
+  // cambio se ve enseguida. Los campos de texto esperan a "Guardar".
+  window.elegirActividad = function (k) { rescatarCampos(); perfil = { ...perfil, actividad: k }; guardarPerfil(); perfilMsg = null; render(); };
+  window.marcarSalud = function (k) { rescatarCampos(); perfil = { ...perfil, salud: { ...perfil.salud, [k]: !perfil.salud[k] } }; guardarPerfil(); perfilMsg = null; render(); };
+  // Lo tipeado en Mis datos sobrevive a un toque en actividad o salud
+  // (que redibujan la pantalla) aunque todavía no se haya guardado.
+  let camposSinGuardar = null;
+  function rescatarCampos() {
+    const ids = ["pf-nombre", "pf-edad", "pf-sexo", "pf-peso", "pf-altura", "pf-medico"];
+    if (!document.getElementById("pf-peso")) return;
+    camposSinGuardar = {};
+    ids.forEach((id) => { const el = document.getElementById(id); if (el) camposSinGuardar[id] = el.value; });
+  }
+  function devolverCampos() {
+    if (!camposSinGuardar) return;
+    Object.keys(camposSinGuardar).forEach((id) => { const el = document.getElementById(id); if (el) el.value = camposSinGuardar[id]; });
+    camposSinGuardar = null;
+  }
+  // Nadie mide 1,60 cm: si el número es menor a 3, vino en metros.
+  function alturaACm(v) { const n = toNumber(v); return n > 0 && n < 3 ? Math.round(n * 100) : n; }
+  window.guardarDatos = function () {
+    const b = leerBasicos();
+    const pesoTxt = document.getElementById("pf-peso").value.trim();
+    const alturaTxt = document.getElementById("pf-altura").value.trim();
+    const peso = pesoTxt ? toNumber(pesoTxt) : null;
+    const altura = alturaTxt ? alturaACm(alturaTxt) : null;
+    const medico = document.getElementById("pf-medico").value.trim().slice(0, 400);
+    const errores = [];
+    if (!(b.edad >= EDAD_MIN && b.edad <= EDAD_MAX)) errores.push(`La edad tiene que estar entre ${EDAD_MIN} y ${EDAD_MAX} años.`);
+    if (peso != null && !(peso >= 30 && peso <= 250)) errores.push("El peso tiene que estar entre 30 y 250 kg.");
+    if (altura != null && !(altura >= 120 && altura <= 220)) errores.push("La altura va en centímetros, entre 120 y 220 (por ejemplo, 160).");
+    if (errores.length) {
+      rescatarCampos();
+      perfilMsg = { tipo: "error", texto: errores.join(" ") };
+      render();
+      return;
+    }
+    perfil = { ...perfil, ...b, peso, altura, medico, listo: true };
+    guardarPerfil();
+    perfilMsg = { tipo: "ok", texto: "¡Listo, guardado!" };
+    render();
+  };
+  window.cambiarTema = function () { rescatarCampos(); perfil = { ...perfil, tema: perfil.tema === "dark" ? "light" : "dark" }; guardarPerfil(); aplicarTema(); render(); };
+  window.pedirReset = function () { rescatarCampos(); confirmarReset = true; render(); };
+  window.cancelarReset = function () { rescatarCampos(); confirmarReset = false; render(); };
   window.borrarTodo = function () {
     try { localStorage.removeItem(PREFIJO + "comidas"); localStorage.removeItem(PREFIJO + "perfil"); } catch (e) { console.error(e); }
-    comidas = []; perfil = { ...PERFIL_VACIO };
-    pantalla = "hoy"; confirmarReset = false; comidaAbierta = null; diasAbiertos = {}; resultado = null; borrador = ""; foto = null;
+    comidas = []; perfil = perfilValido(null);
+    pantalla = "hoy"; confirmarReset = false; comidaAbierta = null; diasAbiertos = {}; abiertos = {}; resultado = null; borrador = ""; foto = null;
     aplicarTema();
     render();
   };
@@ -574,7 +877,7 @@
   // ---------- respaldo ----------
   window.exportar = function () {
     try {
-      const datos = { app: "nutrientes", exportado: new Date().toISOString(), perfil, comidas };
+      const datos = { app: "nutrientes", version: VERSION, exportado: new Date().toISOString(), perfil, comidas };
       const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -596,7 +899,7 @@
         if (!obj || !Array.isArray(obj.comidas)) throw new Error("forma");
         comidas = obj.comidas.map(comidaValida).filter(Boolean);
         guardarComidas();
-        if (obj.perfil) { perfil = { ...PERFIL_VACIO, ...obj.perfil }; guardarPerfil(); aplicarTema(); }
+        if (obj.perfil) { perfil = perfilValido(obj.perfil); guardarPerfil(); aplicarTema(); }
         importMsg = `Listo: se recuperaron ${comidas.length} comida${comidas.length !== 1 ? "s" : ""}.`;
       } catch (e) {
         importMsg = "Ese archivo no es una copia de esta app.";
@@ -668,6 +971,7 @@
     } finally {
       analizando = false;
       render();
+      window.scrollTo(0, 0);
     }
   };
 
@@ -701,7 +1005,7 @@
     comidas = [...comidas, { id: uid(), fecha, creada: Date.now(), resumen: resultado.resumen, n: resultado.n }];
     guardarComidas();
     resultado = null; foto = null; borrador = ""; errorMsg = "";
-    hojaAbierta = false; fechaCarga = null; comidaAbierta = null;
+    cargaAbierta = false; fechaCarga = null; comidaAbierta = null;
     // Te deja mirando el día donde quedó la comida.
     if (fecha === hoyISO()) pantalla = "hoy";
     else { pantalla = "historial"; diasAbiertos = { ...diasAbiertos, [fecha]: true }; }
@@ -716,10 +1020,20 @@
     guardarBorrador();
     const root = document.getElementById("root");
     if (!perfil.listo) { root.innerHTML = pantallaBienvenida(); return; }
-    let html = pantalla === "historial" ? pantallaHistorial() : pantalla === "ajustes" ? pantallaAjustes() : pantallaHoy();
+    let html = pantalla === "historial" ? pantallaHistorial() : pantalla === "datos" ? pantallaDatos() : pantallaHoy();
     html += nav();
-    if (hojaAbierta) html += hojaCarga();
+    if (cargaAbierta) html += pantallaCarga();
+    // La pantalla de carga tiene su propio scroll y se rearma entera: sin
+    // esto, abrir un desplegable al final la mandaba de vuelta arriba.
+    // Solo si sigue en la misma vista: al pasar de escribir al resultado, arriba.
+    const carga = root.querySelector(".carga");
+    const vista = resultado ? "resultado" : "escribir";
+    const scrollCarga = carga && carga.dataset.vista === vista ? carga.scrollTop : 0;
     root.innerHTML = html;
+    const cargaNueva = root.querySelector(".carga");
+    if (cargaNueva) { cargaNueva.dataset.vista = vista; if (scrollCarga) cargaNueva.scrollTop = scrollCarga; }
+    devolverCampos();
+    sincronizarAtras();
   }
 
   cargar();
