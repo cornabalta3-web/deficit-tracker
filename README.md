@@ -48,6 +48,16 @@ Opción más simple (sin usar Git):
    - Value: (pegá la clave que copiaste en el Paso 1)
 4. Guardá, y volvé a desplegar el sitio (Netlify suele pedir un "redeploy" para que la variable tome efecto — hay un botón "Trigger deploy").
 
+### Cambiar la clave más adelante
+
+Las dos apps (la de déficit y `/mama/`) usan la misma clave, así que se cambia en un solo lugar:
+
+1. En console.anthropic.com, con la cuenta que vas a usar: cargá crédito en **Billing** y creá la clave en **API Keys → Create Key**. Si usás workspaces, creala dentro del workspace del proyecto: una clave no se puede mover de workspace.
+2. En Netlify: **Project configuration → Environment variables → `ANTHROPIC_API_KEY` → Edit**, pegá la nueva y guardá.
+3. **Deploys → Trigger deploy → Deploy project**. Sin este paso la función sigue usando la clave vieja: Netlify toma las variables recién en el próximo deploy. Cualquier commit a `main` también dispara uno.
+4. Probá un análisis. "Clave rechazada" = la copiaste mal; "sin crédito" = falta saldo en esa cuenta.
+5. Cuando la nueva ande, borrá la vieja en la consola.
+
 ## Paso 4 — Cerrar el endpoint (importante)
 
 La función `analyze` está publicada en internet. Sin protección, cualquiera que descubra tu URL puede usarla como una API de Claude gratis **facturada a tu tarjeta**.
