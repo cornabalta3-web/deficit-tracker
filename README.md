@@ -27,6 +27,16 @@ Vive en `mama/` y se publica sola con el resto: queda en `https://tu-sitio.netli
 
 Biotina, yodo, cromo y molibdeno quedaron afuera a propósito: las tablas de composición casi no los informan, así que cualquier número sería inventado.
 
+### Clave aparte para la app de mamá (opcional)
+
+Para ver por separado cuánto gasta cada app en la consola de Anthropic:
+
+1. En console.anthropic.com creá un **workspace** nuevo (por ejemplo "Mamá"). Cada workspace tiene sus claves, su reporte de gasto y su propio tope mensual.
+2. Dentro de ese workspace, creá una clave.
+3. En Netlify agregá la variable **`ANTHROPIC_API_KEY_MAMA`** con esa clave y volvé a publicar (*Trigger deploy*).
+
+Desde ahí, `/mama/` usa esa clave y tu app sigue con `ANTHROPIC_API_KEY`. Si `ANTHROPIC_API_KEY_MAMA` no está, la app de mamá usa la de siempre.
+
 ## Paso 1 — Conseguir tu clave de API de Anthropic
 1. Andá a https://console.anthropic.com
 2. Creá una cuenta (o iniciá sesión) y cargá una tarjeta / créditos de facturación.

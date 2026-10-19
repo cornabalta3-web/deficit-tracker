@@ -143,8 +143,8 @@ const ESQUEMA_NUTRIENTES = {
 // el endpoint sigue sirviendo solo para estas dos cosas. Sin `perfil` se usa
 // el de la app original, que nunca lo manda.
 const PERFILES = {
-  deficit: { system: SYSTEM_PROMPT, schema: ESQUEMA_NUTRICION },
-  nutrientes: { system: SYSTEM_PROMPT_NUTRIENTES, schema: ESQUEMA_NUTRIENTES },
+  deficit: { system: SYSTEM_PROMPT, schema: ESQUEMA_NUTRICION, variableClave: "ANTHROPIC_API_KEY" },
+  nutrientes: { system: SYSTEM_PROMPT_NUTRIENTES, schema: ESQUEMA_NUTRIENTES, variableClave: "ANTHROPIC_API_KEY_MAMA" },
 };
 
 function responder(statusCode, body) {
@@ -216,11 +216,6 @@ exports.handler = async function (event) {
     }
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return error(500, "sin_clave", "Falta configurar ANTHROPIC_API_KEY en Netlify (Site configuration > Environment variables).");
-  }
-
   let payload;
   try {
     payload = JSON.parse(event.body);
@@ -233,6 +228,14 @@ exports.handler = async function (event) {
     return error(400, "perfil_invalido", "Perfil de análisis desconocido.");
   }
   const perfil = PERFILES[nombrePerfil];
+
+  // Cada perfil puede tener su propia clave (otra clave u otro workspace de la
+  // consola de Anthropic), así el gasto de cada app aparece por separado. Si
+  // la propia no está configurada, usa ANTHROPIC_API_KEY como siempre.
+  const apiKey = process.env[perfil.variableClave] || process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return error(500, "sin_clave", "Falta configurar ANTHROPIC_API_KEY en Netlify (Site configuration > Environment variables).");
+  }
 
   const dictation = typeof payload.dictation === "string" ? payload.dictation.trim() : "";
   const photo = payload.photo || null;
