@@ -157,8 +157,9 @@ const MOMENTOS = ["Desayuno", "Almuerzo", "Merienda", "Cena", "Colación"];
 const SYSTEM_PROMPT_SUGERENCIAS = `Sos un nutricionista práctico de Argentina. La persona hace un déficit calórico para bajar de peso y te pide ideas concretas para lo que le queda del día.
 
 Reglas:
-- Proponé una opción por cada comida que le falta según la hora: por ejemplo, a las 16:30 faltan merienda y cena; a las 21:30, solo la cena; después de las 23, una colación muy liviana o nada. Si te piden un solo momento, proponé solo ese.
-- Entre todas las opciones no pases de las kcal que le quedan. Si le quedan menos de 150 kcal, proponé algo muy liviano (una infusión, verdura) y decilo en el resumen.
+- Si te dicen qué comidas le faltan, proponé exactamente una opción para cada una, en ese orden, y ninguna más. Si no te lo dicen, deducilo por la hora: por ejemplo, a las 16:30 faltan merienda y cena; a las 21:30, solo la cena; después de las 23, una colación muy liviana o nada. Si te piden un solo momento, proponé solo ese.
+- Si no desayuna (hace ayuno hasta el mediodía), nunca propongas desayuno ni nada antes del almuerzo.
+- Entre todas las opciones no pases de las kcal que le quedan: repartilas entre las comidas que faltan. Si le quedan menos de 150 kcal, proponé algo muy liviano (una infusión, verdura) y decilo en el resumen.
 - Priorizá lo que le falta: si le falta mucha proteína, que cada opción tenga proteína magra; no sumes carbohidratos ni grasas que ya están al tope.
 - Respetá el tipo de dieta.
 - Comidas simples y fáciles de conseguir en Argentina, con cantidades caseras claras (gramos, unidades, cucharadas), incluido el aceite si lleva.
@@ -198,6 +199,8 @@ function textoSugerencias(s) {
   const comidas = lista(s.comidas_hoy, 15, 150);
   const evitar = lista(s.evitar, 10, 150);
   const momento = MOMENTOS.includes(s.solo_momento) ? s.solo_momento : null;
+  // Las comidas que le faltan hoy, según las que hace (sin desayuno si ayuna).
+  const faltan = [...new Set(lista(s.momentos, 5, 20).filter((m) => MOMENTOS.includes(m)))];
   return [
     `Hora: ${hora}.`,
     `Le quedan ${num(s.quedan_kcal)} kcal para el resto del día.`,
@@ -205,7 +208,8 @@ function textoSugerencias(s) {
     `Tipo de dieta: ${DIETAS[dieta]}.`,
     `Ya comió hoy: ${comidas.length ? comidas.join("; ") : "nada todavía"}.`,
     evitar.length ? `Evitar, ya se lo propusiste: ${evitar.join("; ")}.` : "",
-    momento ? `Proponé solo para: ${momento}.` : "",
+    s.sin_desayuno === true ? "No desayuna: hace ayuno hasta el mediodía." : "",
+    momento ? `Proponé solo para: ${momento}.` : faltan.length ? `Le faltan estas comidas: ${faltan.join(", ")}. Proponé una opción para cada una, en ese orden, y ninguna más.` : "",
   ].filter(Boolean).join("\n");
 }
 

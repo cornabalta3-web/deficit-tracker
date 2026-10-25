@@ -17,14 +17,14 @@
     --text: #F2EFE9; --textDim: #9AA3AA; --amber: #E8A33D; --sage: #6FA98A; --rust: #C1584B;
     --protein: #6C93E8; --carbs: #D9823D; --fat: #B589E0;
     --meta: #5E9FC4; --cheat: #D97BA6;
-    --amberSoft: #2A2418; --sageSoft: #1D2E25;
+    --amberSoft: #2A2418; --sageSoft: #1D2E25; --semAmbar: #E8A33D;
   }
   [data-theme="light"] {
     --bg: #F7F5F0; --surface: #FFFFFF; --surfaceRaised: #EFEBE2; --line: #DDD6C8;
     --text: #23262B; --textDim: #6D7278; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
     --protein: #3A5FC4; --carbs: #B5631F; --fat: #8354B8;
     --meta: #2F7398; --cheat: #B2457A;
-    --amberSoft: #F6EBD6; --sageSoft: #E1EFE7;
+    --amberSoft: #F6EBD6; --sageSoft: #E1EFE7; --semAmbar: #C28A1C;
   }
   * { box-sizing: border-box; }
   body, #root { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
@@ -150,6 +150,8 @@
   .btn-fijo { width: 100%; min-height: 44px; border: 1px solid var(--amber); color: var(--amber); border-radius: 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .btn-fijo.on { background: var(--amberSoft); }
   .nube-icono { width: 36px; height: 36px; border-radius: 50%; background: var(--sageSoft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .opcion-chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surfaceRaised); color: var(--textDim); font-size: 13px; }
+  .opcion-chip.on { border-color: var(--amber); background: var(--amberSoft); color: var(--amber); font-weight: 700; }
   .codigo { flex: 1; min-width: 0; background: var(--surfaceRaised); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; font-weight: 700; letter-spacing: 1px; text-align: center; }
 </style>
 <!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
@@ -180,8 +182,8 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v17-html · dieta, lo de siempre, porciones, semana y nube";
-  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null, dieta: "equilibrada" };
+  const APP_VERSION = "v18-html · semana en tres estados y tus comidas (ayuno)";
+  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
   let dayMeta = {};
@@ -1500,6 +1502,8 @@ function todayISO() {
       faltan_grasas_g: Math.round(Math.max(0, o.metas.g - o.comido.g)),
       dieta: o.dieta.k,
       comidas_hoy: o.comidas.map((m) => m.note).slice(0, 15),
+      momentos: faltanHoy(o),
+      sin_desayuno: !comidasHabituales().includes("Desayuno"),
       ...extra,
     };
     const r = await fetch("/.netlify/functions/analyze", {
@@ -1560,6 +1564,7 @@ function todayISO() {
     agregarComida({ id: uid(), date: todayISO(), consumed: o.kcal, protein: o.proteinas_g, carbs: o.carbohidratos_g, fat: o.grasas_g, note: `${o.momento}: ${o.comida}`, sugerida: true, createdAt: Date.now() });
     sugerencias.opciones.splice(i, 1);
     persistSugerencias();
+    if (faltanManual) faltanManual = { ...faltanManual, lista: faltanManual.lista.filter((m) => m !== o.momento) };
     render();
   };
 
@@ -1575,9 +1580,62 @@ function todayISO() {
     }
   }
 
+  // ---------- tus comidas (ayuno) ----------
+  //
+  // Qué comidas hacés en el día. Sin desayuno = ayunás hasta el mediodía, y
+  // las sugerencias no proponen nada antes del almuerzo. Cuáles te faltan hoy
+  // se deduce contando lo que ya cargaste, en orden: con almuerzo, merienda y
+  // cena, si ya cargaste dos, falta la cena. Cargas a menos de 45 minutos una
+  // de otra cuentan como la misma comida (el plato y el postre por separado).
+  // Si la cuenta no coincide, se corrige con un toque y vale por ese día.
+  const COMIDAS_POSIBLES = ["Desayuno", "Almuerzo", "Merienda", "Cena"];
+  const MISMA_COMIDA_MS = 45 * 60 * 1000;
+  let faltanManual = null;         // {fecha, lista} si corregiste a mano cuáles faltan
+  function comidasHabituales() {
+    const c = Array.isArray(goal.comidas) ? COMIDAS_POSIBLES.filter((m) => goal.comidas.includes(m)) : [];
+    return c.length ? c : COMIDAS_POSIBLES.slice();
+  }
+  function comidasHechas(comidasHoy) {
+    const horas = comidasHoy.map((m) => m.createdAt || 0).sort((a, b) => a - b);
+    let n = 0, anterior = -Infinity;
+    horas.forEach((t) => { if (t - anterior > MISMA_COMIDA_MS) n++; anterior = t; });
+    return n;
+  }
+  function faltanHoy(o) {
+    const habituales = comidasHabituales();
+    if (faltanManual && faltanManual.fecha === todayISO()) return habituales.filter((m) => faltanManual.lista.includes(m));
+    return habituales.slice(Math.min(comidasHechas(o.comidas), habituales.length));
+  }
+  function conArticulo(m) { return (m === "Merienda" || m === "Cena" ? "la " : "el ") + m.toLowerCase(); }
+  window.toggleComidaHabitual = function (m) {
+    const actual = comidasHabituales();
+    const nueva = actual.includes(m) ? actual.filter((x) => x !== m) : COMIDAS_POSIBLES.filter((x) => x === m || actual.includes(x));
+    if (!nueva.length) return;
+    goal = { ...goal, comidas: nueva };
+    faltanManual = null;
+    persistGoal();
+    render();
+  };
+  window.toggleFalta = function (m) {
+    const actual = faltanHoy(objetivosDelDia(computeCtx()));
+    faltanManual = { fecha: todayISO(), lista: actual.includes(m) ? actual.filter((x) => x !== m) : actual.concat(m) };
+    render();
+  };
+
+  function resumenFaltan(o, habituales, faltan) {
+    const hechas = habituales.length - faltan.length;
+    const ya = hechas === 0 ? "Todavía no comiste." : `Ya comiste ${hechas} de tus ${habituales.length} comidas.`;
+    if (!faltan.length) return `${ya} Si querés una idea igual, marcá abajo para qué comida.`;
+    if (o.cheat) return `${ya} Hoy es cheat: te sugiero igual algo que entre en tu límite.`;
+    if (faltan.length === 1) return `${ya} Te quedan <b style="color:var(--text);">${kcal(o.quedan)} kcal</b> para ${conArticulo(faltan[0])}.`;
+    return `${ya} Te quedan <b style="color:var(--text);">${kcal(o.quedan)} kcal</b> para ${faltan.length} comidas (≈ ${kcal(o.quedan / faltan.length)} cada una).`;
+  }
+
   // ---------- PANTALLA: DIETA ----------
   function screenDieta(c) {
     const o = objetivosDelDia(c);
+    const habituales = comidasHabituales();
+    const faltan = faltanHoy(o);
     const fecha = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
     let h = `<div class="screen">
       <div class="topbar">
@@ -1601,6 +1659,12 @@ function todayISO() {
         }).join("")}
       </div>
       <div class="xs dim" style="margin-top:10px;line-height:1.45;">La proteína es tu meta de Ajustes (${c.proteinTarget} g). La dieta reparte el resto de las calorías entre carbohidratos (C) y grasas (G).</div>
+      <div class="divider"></div>
+      <div class="hero-label">Tus comidas</div>
+      <div class="row gap8" style="flex-wrap:wrap;margin-top:10px;">
+        ${COMIDAS_POSIBLES.map((m) => { const on = habituales.includes(m); return `<button class="opcion-chip ${on ? "on" : ""}" onclick="toggleComidaHabitual('${m}')" aria-pressed="${on}">${m}</button>`; }).join("")}
+      </div>
+      <div class="xs dim" style="margin-top:8px;line-height:1.45;">${habituales.includes("Desayuno") ? "¿Ayunás a la mañana? Sacá el desayuno." : "Sin desayuno: ayunás hasta el mediodía y no te sugiero nada antes del almuerzo."}</div>
     </div>`;
 
     const fila = (nombre, comido, metaG, color, esP) => {
@@ -1631,11 +1695,19 @@ function todayISO() {
     // ¿Qué como el resto del día?
     h += `<div class="card">
       <div class="title" style="font-size:17px;">¿Qué como el resto del día?</div>
-      <div class="small dim" style="margin-top:4px;">Son las ${horaLocal()}. Te propongo opciones que entran en lo que te queda.</div>`;
+      <div class="small dim" style="margin-top:4px;line-height:1.45;">${resumenFaltan(o, habituales, faltan)}</div>
+      <div class="row gap8" style="flex-wrap:wrap;align-items:center;margin-top:10px;">
+        <span class="xs dim" style="font-weight:700;">Te falta:</span>
+        ${habituales.map((m) => { const on = faltan.includes(m); return `<button class="opcion-chip ${on ? "on" : ""}" onclick="toggleFalta('${m}')" aria-pressed="${on}">${m}</button>`; }).join("")}
+      </div>`;
     if (sugerenciasError) h += `<div class="small" style="color:var(--rust);margin-top:12px;">${esc(sugerenciasError)}</div>`;
-    const ops = sugerencias ? sugerencias.opciones : [];
-    if (sugerencias && sugerencias.resumen) h += `<div class="veredicto">${esc(sugerencias.resumen)}</div>`;
-    ops.forEach((op, i) => {
+    // Las de comidas que ya hiciste se esconden (siguen guardadas: si volvés a
+    // marcar esa comida como pendiente, reaparecen).
+    const visible = (op) => faltan.includes(op.momento) || !COMIDAS_POSIBLES.includes(op.momento);
+    const ops = sugerencias ? sugerencias.opciones.filter(visible) : [];
+    if (sugerencias && sugerencias.resumen && ops.length) h += `<div class="veredicto">${esc(sugerencias.resumen)}</div>`;
+    (sugerencias ? sugerencias.opciones : []).forEach((op, i) => {
+      if (!visible(op)) return;
       const cambiando = sugiriendo === i;
       h += `<div class="sugerencia">
         <div class="sug-momento">${esc(op.momento)}</div>
@@ -1652,8 +1724,9 @@ function todayISO() {
       h += `<div class="xs dim" style="margin-top:12px;line-height:1.45;">Con ${ops.length > 1 ? "estas" : "esta"} cerrás el día en <b style="color:var(--text);">${kcal(o.comido.kcal + tot.k)} kcal</b> y <b style="color:var(--text);">${Math.round(o.comido.p + tot.p)} g de proteína</b>.</div>`;
     }
     const cargandoTodo = sugiriendo === true;
-    h += `<button class="${ops.length ? "btn-secondary" : "btn-primary"} big-btn" style="width:100%;margin-top:14px;" onclick="pedirSugerencias()" ${sugiriendo !== false ? "disabled" : ""}>
-        ${cargandoTodo ? '<span class="spin">↻</span> Pensando…' : ops.length ? "Sugerime otras" : "Sugerime"}
+    const sinFaltan = !faltan.length;
+    h += `<button class="${ops.length ? "btn-secondary" : "btn-primary"} big-btn" style="width:100%;margin-top:14px;" onclick="pedirSugerencias()" ${sugiriendo !== false || sinFaltan ? "disabled" : ""}>
+        ${cargandoTodo ? '<span class="spin">↻</span> Pensando…' : sinFaltan ? "Marcá qué comida te falta" : ops.length ? "Sugerime otras" : faltan.length === 1 ? `Sugerime ${conArticulo(faltan[0])}` : "Sugerime"}
       </button>
       <div class="xs dim" style="margin-top:8px;">Cada pedido de sugerencias gasta un análisis, como cargar una comida.</div>
     </div>`;
@@ -1779,9 +1852,17 @@ function todayISO() {
 
   // ---------- resumen de la semana ----------
   //
-  // Los últimos 7 días contra el límite. El límite de cada día es su gasto
-  // menos la meta diaria de hoy: es una aproximación (la meta va cambiando un
-  // poco día a día), pero alcanza para ver si te pasaste o no.
+  // Los últimos 7 días, cada uno contra su propio límite: lo que gastaste ese
+  // día (basal más el ejercicio que cargaste, o el total de una app) menos la
+  // meta diaria de hoy. La meta va cambiando un poco día a día, así que eso es
+  // una aproximación; el gasto sí es el de cada día.
+  //
+  // Tres estados. Antes "te pasaste" juntaba dos cosas distintas, y un día en
+  // déficit que no llegó a la meta se veía igual que uno en que comiste más de
+  // lo que gastaste:
+  //   meta      comiste hasta el límite: cumpliste la meta
+  //   deficit   pasaste el límite pero no lo que gastaste: igual bajaste
+  //   superavit comiste más de lo que gastaste (el único con ▲)
   let semanaSel = null;
   window.selDiaSemana = function (i) { semanaSel = semanaSel === i ? null : i; render(); };
   function datosSemana(c) {
@@ -1793,17 +1874,21 @@ function todayISO() {
       const esHoy = fecha === c.todayStr;
       const gasto = d ? d.gasto : goal.maintenance;
       const limite = Math.max(0, gasto - meta);
+      const consumido = d ? d.consumed : 0;
       let estado = "vacio";
       if (esHoy) estado = "hoy";
       else if (d && d.cheat) estado = "cheat";
-      else if (d) estado = d.consumed <= limite ? "ok" : "pasado";
-      dias.push({ fecha, d, esHoy, limite, gasto, consumido: d ? d.consumed : 0, proteina: d ? d.protein : 0, estado });
+      else if (d) estado = consumido <= limite ? "meta" : consumido <= gasto ? "deficit" : "superavit";
+      dias.push({ fecha, d, esHoy, limite, gasto, consumido, proteina: d ? d.protein : 0, estado,
+        // Sin ejercicio ni total de una app, el gasto es solo el basal.
+        soloBasal: !!d && !d.usedAppTotal && !d.exercise });
     }
     const completos = dias.filter((x) => x.d && !x.esHoy);
     const contables = completos.filter((x) => x.estado !== "cheat");
     return {
-      dias,
-      dentro: contables.filter((x) => x.estado === "ok").length,
+      dias, meta,
+      cumplidos: contables.filter((x) => x.estado === "meta").length,
+      enDeficit: contables.filter((x) => x.estado !== "superavit").length,
       contables: contables.length,
       promedio: completos.length ? completos.reduce((s, x) => s + x.consumido, 0) / completos.length : 0,
       proteina: completos.length ? completos.reduce((s, x) => s + x.proteina, 0) / completos.length : 0,
@@ -1815,30 +1900,38 @@ function todayISO() {
     const W = 320, H = 160, BASE = 150, slot = W / 7, ancho = 26;
     const tope = Math.max(500, ...s.dias.map((x) => x.consumido * 1.1), ...s.dias.map((x) => x.limite * 1.25));
     const y = (v) => BASE - (v / tope) * (BASE - 14);
-    const COLOR = { ok: "var(--sage)", pasado: "var(--amber)", cheat: "var(--cheat)" };
+    // --semAmbar es un amarillo propio del gráfico: en el tema claro, el
+    // --amber de los botones quedaba casi igual al rojo.
+    const COLOR = { meta: "var(--sage)", deficit: "var(--semAmbar)", superavit: "var(--rust)" };
     const LETRA = ["D", "L", "M", "M", "J", "V", "S"];
-    let barras = "";
+    let barras = "", marcas = "", tocables = "";
     s.dias.forEach((x, i) => {
       const cx = slot * i + slot / 2, x0 = cx - ancho / 2;
       if (x.consumido > 0) {
         const top = y(x.consumido), r = Math.min(4, BASE - top);
         const d = `M${x0.toFixed(1)},${BASE} V${(top + r).toFixed(1)} Q${x0.toFixed(1)},${top.toFixed(1)} ${(x0 + r).toFixed(1)},${top.toFixed(1)} H${(x0 + ancho - r).toFixed(1)} Q${(x0 + ancho).toFixed(1)},${top.toFixed(1)} ${(x0 + ancho).toFixed(1)},${(top + r).toFixed(1)} V${BASE} Z`;
-        barras += x.estado === "hoy"
-          ? `<path d="${d}" fill="var(--surfaceRaised)" stroke="var(--textDim)" stroke-width="1.5" stroke-dasharray="3 3"></path>`
-          : `<path d="${d}" fill="${COLOR[x.estado]}"></path>`;
-        if (x.estado === "pasado") barras += `<text x="${cx.toFixed(1)}" y="${(top - 6).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="10" font-weight="700">▲</text>`;
+        // Hoy y cheat van con contorno, no relleno: no se juzgan, y así el
+        // rosa del cheat no compite con el rojo del superávit.
+        if (x.estado === "hoy") barras += `<path d="${d}" fill="var(--surfaceRaised)" stroke="var(--textDim)" stroke-width="1.5" stroke-dasharray="3 3"></path>`;
+        else if (x.estado === "cheat") barras += `<path d="${d}" fill="none" stroke="var(--cheat)" stroke-width="1.5"></path>`;
+        else barras += `<path d="${d}" fill="${COLOR[x.estado]}"></path>`;
+        if (x.estado === "superavit") barras += `<text x="${cx.toFixed(1)}" y="${(top - 6).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="10" font-weight="700">▲</text>`;
         if (x.estado === "cheat") barras += `<text x="${cx.toFixed(1)}" y="${Math.max(9, top - 5).toFixed(1)}" text-anchor="middle" fill="var(--textDim)" font-size="9">cheat</text>`;
       } else if (!x.esHoy) {
         barras += `<text x="${cx.toFixed(1)}" y="${BASE - 4}" text-anchor="middle" fill="var(--textDim)" font-size="10">–</text>`;
       }
+      // El límite de ese día: una marca corta sobre su columna, con un borde
+      // del color de la tarjeta para que se lea también encima de la barra.
+      if ((x.d || x.esHoy) && x.estado !== "cheat") {
+        const ly = y(x.limite).toFixed(1), a = (x0 - 4).toFixed(1), b = (x0 + ancho + 4).toFixed(1);
+        marcas += `<line x1="${a}" y1="${ly}" x2="${b}" y2="${ly}" stroke="var(--surface)" stroke-width="5" stroke-linecap="round"></line>
+          <line class="marca-limite" x1="${a}" y1="${ly}" x2="${b}" y2="${ly}" stroke="var(--text)" stroke-width="2" stroke-linecap="round"></line>`;
+      }
       const dia = new Date(x.fecha + "T00:00:00").getDay();
       barras += `<text x="${cx.toFixed(1)}" y="${BASE + 16}" text-anchor="middle" fill="${x.esHoy ? "var(--text)" : "var(--textDim)"}" font-size="11" ${x.esHoy ? 'font-weight="700"' : ""}>${x.esHoy ? "Hoy" : LETRA[dia]}</text>`;
       // Área tocable de toda la columna: más grande que la barra.
-      barras += `<rect x="${(slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${H + 10}" fill="transparent" style="cursor:pointer;" onclick="selDiaSemana(${i})"><title>${esc(formatDate(x.fecha))}: ${kcal(x.consumido)} kcal</title></rect>`;
+      tocables += `<rect x="${(slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${H + 10}" fill="transparent" style="cursor:pointer;" onclick="selDiaSemana(${i})"><title>${esc(formatDate(x.fecha))}: ${kcal(x.consumido)} kcal</title></rect>`;
     });
-    const lim = s.dias[6].limite;
-    const linea = `<line x1="0" y1="${y(lim).toFixed(1)}" x2="${W}" y2="${y(lim).toFixed(1)}" stroke="var(--textDim)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"></line>
-      <text x="0" y="${(y(lim) - 5).toFixed(1)}" fill="var(--textDim)" font-size="10">límite ${kcal(lim)}</text>`;
 
     let detalle = "Tocá un día para ver sus números.";
     if (semanaSel != null && s.dias[semanaSel]) {
@@ -1846,9 +1939,18 @@ function todayISO() {
       const nombre = formatDate(x.fecha);
       if (!x.d) detalle = `${nombre}: sin comidas cargadas.`;
       else {
-        const dif = x.consumido - x.limite;
-        const extra = x.estado === "cheat" ? "día cheat" : x.esHoy ? "en curso" : dif > 0 ? `te pasaste ${kcal(dif)}` : `quedaste ${kcal(-dif)} abajo`;
-        detalle = `<b style="color:var(--text);">${nombre}</b>: ${kcal(x.consumido)} kcal · límite ${kcal(x.limite)} · ${extra}`;
+        const ej = x.d.exercise ? ` (con ${kcal(x.d.exercise)} de ejercicio)` : x.d.usedAppTotal ? " (total de tu app)" : "";
+        const extra = {
+          cheat: "día cheat",
+          hoy: `en curso, límite ${kcal(x.limite)}`,
+          meta: `cumpliste la meta, ${kcal(x.limite - x.consumido)} abajo del límite`,
+          deficit: `déficit de ${kcal(x.gasto - x.consumido)}; te faltaron ${kcal(x.consumido - x.limite)} para la meta`,
+          superavit: `comiste ${kcal(x.consumido - x.gasto)} más de lo que gastaste`,
+        }[x.estado];
+        detalle = `<b style="color:var(--text);">${nombre}</b>: comiste ${kcal(x.consumido)} · gastaste ${kcal(x.gasto)}${ej} · ${extra}.`;
+        if (x.soloBasal && (x.estado === "deficit" || x.estado === "superavit")) {
+          detalle += `<br>Ese día cuenta solo tu basal. ¿Entrenaste? Sumalo en Historial → Editar gasto del día.`;
+        }
       }
     }
 
@@ -1857,17 +1959,20 @@ function todayISO() {
         <div class="hero-label">Últimos 7 días</div>
         <div class="xs dim">${formatDate(s.dias[0].fecha)} – hoy</div>
       </div>
-      <div style="font-size:21px;font-weight:700;margin-top:8px;line-height:1.25;">${s.contables ? `${s.dentro} de ${s.contables} día${s.contables !== 1 ? "s" : ""} dentro del límite` : "Todavía no hay días completos"}</div>
-      <div class="xs dim" style="margin-top:4px;">Sin contar los días cheat ni hoy, que está en curso.</div>
-      <svg role="img" aria-label="Calorías de los últimos 7 días contra el límite" width="100%" viewBox="0 0 ${W} ${H + 12}" style="display:block;margin-top:16px;overflow:visible;font-family:-apple-system, Helvetica Neue, Arial, sans-serif;">
+      <div style="font-size:21px;font-weight:700;margin-top:8px;line-height:1.25;">${s.contables ? `${s.enDeficit} de ${s.contables} día${s.contables !== 1 ? "s" : ""} en déficit` : "Todavía no hay días completos"}</div>
+      ${s.contables ? `<div class="small" style="margin-top:4px;"><b style="color:var(--sage);">${s.cumplidos}</b> cumpliendo la meta de ${kcal(s.meta)} kcal</div>` : ""}
+      <div class="xs dim" style="margin-top:4px;">Sin contar los días cheat ni hoy, que está en curso. Cada día se mide con lo que gastaste ese día, ejercicio incluido.</div>
+      <svg role="img" aria-label="Calorías de los últimos 7 días, cada una contra el límite de su día" width="100%" viewBox="0 0 ${W} ${H + 12}" style="display:block;margin-top:16px;overflow:visible;font-family:-apple-system, Helvetica Neue, Arial, sans-serif;">
         <line x1="0" y1="${BASE}" x2="${W}" y2="${BASE}" stroke="var(--line)" stroke-width="1"></line>
-        ${linea}${barras}
+        ${barras}${marcas}${tocables}
       </svg>
-      <div class="xs dim" style="margin-top:8px;min-height:18px;">${detalle}</div>
+      <div class="xs dim" style="margin-top:8px;min-height:18px;line-height:1.45;">${detalle}</div>
       <div class="row" style="flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:11px;color:var(--textDim);">
-        <span><span class="sq" style="background:var(--sage);"></span>Dentro del límite</span>
-        <span><span class="sq" style="background:var(--amber);"></span>▲ Te pasaste</span>
-        <span><span class="sq" style="background:var(--cheat);"></span>Cheat</span>
+        <span><span class="sq" style="background:var(--sage);"></span>Cumpliste la meta</span>
+        <span><span class="sq" style="background:var(--semAmbar);"></span>En déficit, sin llegar a la meta</span>
+        <span><span class="sq" style="background:var(--rust);"></span>▲ Comiste más de lo que gastaste</span>
+        <span><span class="dash" style="background:var(--text);"></span>Límite de ese día</span>
+        <span><span class="sq" style="border:1.5px solid var(--cheat);box-sizing:border-box;"></span>Cheat</span>
         <span><span class="sq" style="border:1px dashed var(--textDim);box-sizing:border-box;"></span>Hoy, en curso</span>
       </div>
       <div class="grid3" style="margin-top:16px;gap:8px;">

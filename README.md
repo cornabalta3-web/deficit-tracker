@@ -10,6 +10,19 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v18 (app de déficit)
+
+- **Resumen de la semana en tres estados.** Cada día se mide contra su propio límite: lo que gastaste ese día (basal más el ejercicio cargado, o el total de una app) menos la meta de déficit.
+  - Verde: cumpliste la meta.
+  - Amarillo: quedaste en déficit pero no llegaste a la meta.
+  - Rojo con ▲: comiste más de lo que gastaste. Es el único "te pasaste".
+  - Cada barra tiene su marca de límite, y el título cuenta las dos cosas ("4 de 5 días en déficit · 3 cumpliendo la meta").
+  - Si un día en amarillo o rojo tiene solo el basal, al tocarlo te recuerda cargar el ejercicio en Historial → Editar gasto del día.
+- **Tus comidas** (en Dieta): elegís qué comidas hacés. Sin desayuno = ayuno hasta el mediodía, y las sugerencias no proponen nada antes del almuerzo.
+  - La app cuenta cuántas ya cargaste hoy; dos cargas a menos de 45 minutos son la misma comida.
+  - Sugiere solo las que faltan: con almuerzo, merienda y cena, si ya comiste dos, te propone la cena con lo que te queda del día.
+  - Si la cuenta no coincide, tocás "Te falta" y lo corregís para ese día.
+
 ## Novedades de la v17 (app de déficit)
 
 - **Dieta** (en la barra de abajo): elegís el tipo de dieta (equilibrada, alta en proteína, baja en carbohidratos, mediterránea o vegetariana). La proteína es siempre tu meta de Ajustes; la dieta reparte el resto de las calorías del día entre carbohidratos y grasas. Muestra **cómo viene el día** (kcal libres y las tres barras contra su meta) y, con **Sugerime**, propone qué comer en lo que queda del día según la hora. Cada opción tiene **Lo comí** (se suma sin otro análisis) y **Otra opción** (cambia solo esa).
