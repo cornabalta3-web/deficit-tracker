@@ -2,5 +2,9 @@
   functions = "netlify/functions"
   publish = "."
 
+# @netlify/blobs (la nube de la v17) pide Node 22.12 o más.
+[build.environment]
+  NODE_VERSION = "22"
+
 [functions]
   node_bundler = "esbuild"

@@ -5,8 +5,27 @@
 - `nutrientes.js` — catálogo de nutrientes y referencias diarias que usan las dos apps. Tiene que viajar junto a `index.html`.
 - `mama/` — la versión "Nutrientes": solo calorías, macros, vitaminas y minerales (ver abajo).
 - `netlify/functions/analyze.js` — función serverless que llama a la API de Anthropic protegiendo tu clave. La comparten las dos apps.
+- `netlify/functions/datos.js` — la nube de la app de déficit: guarda y devuelve tus datos con un código (Netlify Blobs).
+- `package.json` — la única dependencia, `@netlify/blobs`. Netlify la instala sola al publicar; no hay paso de build.
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
+
+## Novedades de la v17 (app de déficit)
+
+- **Dieta** (en la barra de abajo): elegís el tipo de dieta (equilibrada, alta en proteína, baja en carbohidratos, mediterránea o vegetariana). La proteína es siempre tu meta de Ajustes; la dieta reparte el resto de las calorías del día entre carbohidratos y grasas. Muestra **cómo viene el día** (kcal libres y las tres barras contra su meta) y, con **Sugerime**, propone qué comer en lo que queda del día según la hora. Cada opción tiene **Lo comí** (se suma sin otro análisis) y **Otra opción** (cambia solo esa).
+- **Lo de siempre**: en la hoja de carga aparecen las comidas que marcaste con ★ (abriendo una comida) y las que cargaste 3 veces o más con el mismo texto. Un toque y se suman, sin gastar análisis.
+- **Porciones**: al abrir una comida, ½ / 1 / 1½ / 2 recalcula calorías, macros y nutrientes. Volver a 1 deja el original exacto; si la editás a mano, manda lo que escribiste.
+- **Resumen de la semana** arriba de Progreso, que ahora está en la barra: los últimos 7 días contra el límite, cuántos quedaron adentro (sin contar los cheat ni hoy), promedio, proteína y déficit de la semana. Tocando una barra ves los números de ese día.
+- **Guardado en la nube** (Ajustes): ver la sección siguiente.
+
+### La nube: cómo funciona y qué tener en cuenta
+
+- No hay cuenta ni contraseña. Cada celular arma un **código al azar** (tres grupos de 4, como `7Q4M-92KD-H3TP`) y sube todo (comidas, días, objetivo, pesajes y Lo de siempre) unos segundos después de cada cambio. Sin señal, reintenta solo cuando vuelve.
+- En un celular nuevo: en la bienvenida, "¿Ya la usabas en otro celular?" (o después, en Ajustes → "¿Celular nuevo?") → pegás el código → te muestra qué encontró y recién al confirmar reemplaza lo que hay. Desde ahí ese celular guarda con el mismo código.
+- **Quien tenga el código ve tus datos.** Es a propósito, para no tener que manejar cuentas. No lo compartas.
+- Se guarda en Netlify Blobs, que viene con el sitio: no hay que configurar nada. El servidor guarda bajo el hash del código, así que ni mirando el almacén aparecen los códigos. Las vistas previas de los PR usan el mismo almacén que el sitio publicado.
+- "Borrar todo" no borra la copia de la nube: te muestra el código viejo por si te arrepentís, y al volver a empezar se arma uno nuevo.
+- La app de mamá (`/mama/`) no usa la nube.
 
 ## Versión "Nutrientes" (para mamá)
 
@@ -82,16 +101,28 @@ Si la definís, la función va a exigir ese token en cada pedido. Tené en cuent
 
 ## Nota sobre costos
 
-La app usa **`claude-sonnet-5`**. Con ~4 análisis por día, el costo ronda los **$0,80 por mes**.
+La app usa **`claude-sonnet-5`**: USD 2 por millón de tokens de entrada y USD 10 por millón de salida. El modelo razona antes de contestar (thinking adaptativo), y ese razonamiento se cobra como salida, así que la salida es la mayor parte del costo.
+
+Estimación (no medición; el número real está en console.anthropic.com → Usage):
+
+| Qué | Costo aproximado |
+|---|---|
+| Analizar una comida (dictado o foto, con nutrientes) | USD 0,01 a 0,03 |
+| Pedir sugerencias en Dieta (o "Otra opción") | USD 0,01 a 0,02 |
+| Sumar desde Lo de siempre, "Lo comí", porciones, la nube | gratis (no llaman a la API) |
+
+Con ~4 análisis y 1 o 2 pedidos de sugerencias por día da **USD 2,5 a 4 por mes**. Cada comida que sumás desde Lo de siempre en vez de dictarla es un análisis menos.
+
+**Netlify.** En los planes por créditos, el gratis trae 300 créditos por mes y cada deploy a producción (cada merge a `main`) gasta 15; las vistas previas de los PR no gastan. Las funciones y la nube de esta app son poco tráfico. Si los créditos se acaban, Netlify pausa el sitio hasta el mes siguiente, así que conviene juntar cambios y publicar menos veces. Las cuentas viejas pueden seguir en el plan anterior, con otros límites: fijate cuál tenés en Billing / Usage.
 
 Las fotos se redimensionan a 1024px en el navegador antes de mandarlas: para estimar un plato no se pierde nada útil y es lo que más baja el costo por análisis (una foto de iPhone sin tocar cuesta más del doble en tokens de entrada).
 
-Desde la v15 cada análisis devuelve también ~30 nutrientes de detalle (vitaminas, minerales, tipos de grasa), lo que agrega tokens de salida: con el mismo uso calculá algo así como medio dólar más por mes. Es una estimación, no una medición.
+La estimación ya cuenta los ~30 nutrientes de detalle (vitaminas, minerales, tipos de grasa) que devuelve cada análisis desde la v15.
 
-Si alguna vez querés máxima precisión en las estimaciones por foto, cambiá `MODEL` en `netlify/functions/analyze.js` a `claude-opus-5`. Sube a ~$2,40 por mes.
+Si alguna vez querés máxima precisión en las estimaciones por foto, cambiá `MODEL` en `netlify/functions/analyze.js` a `claude-opus-5-5` (USD 4 / USD 20 por millón): cuesta más o menos el doble.
 
 ## Nota sobre los datos
 
-Esta versión usa `localStorage` del navegador — tus datos quedan guardados en ese dispositivo/navegador específico. **Si cambiás de celular o borrás datos de Safari, se pierde el historial.** Usá el botón de "Descargar respaldo" dentro de la app periódicamente para tener una copia de seguridad en un archivo aparte.
+La app trabaja con `localStorage` del navegador y, desde la v17, sube una copia a la nube con tu código (ver arriba): si cambiás de celular o se borran los datos de Safari, los recuperás con el código. El respaldo en archivo ("Descargar respaldo") sigue estando, ahora con Lo de siempre incluido.
 
-Es la limitación más seria que le queda a la app. La solución de fondo es guardar los datos en el servidor, que es un cambio de arquitectura pendiente.
+La app de mamá guarda solo en su celular.

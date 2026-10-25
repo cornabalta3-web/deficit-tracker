@@ -139,12 +139,84 @@ const ESQUEMA_NUTRIENTES = {
   additionalProperties: false,
 };
 
+// ---------- perfil "sugerencias" (pantalla Dieta de la app de déficit) ----------
+//
+// No analiza una comida: propone qué comer en lo que queda del día. El cliente
+// manda solo números, el tipo de dieta y lo que ya comió; el pedido se arma
+// acá (textoSugerencias), así este perfil tampoco sirve para mandarle al
+// modelo cualquier cosa.
+const DIETAS = {
+  equilibrada: "equilibrada: de todo un poco, con verduras, frutas, cereales y proteínas magras",
+  alta_proteina: "alta en proteína: priorizá carnes magras, pescado, huevo, lácteos descremados y legumbres",
+  baja_carbos: "baja en carbohidratos: poco pan, pasta, arroz, azúcar y fruta muy dulce; más verduras, proteínas y grasas buenas",
+  mediterranea: "mediterránea: aceite de oliva, pescado, legumbres, verduras, frutos secos y cereales integrales",
+  vegetariana: "vegetariana: sin carne ni pescado; huevo y lácteos sí",
+};
+const MOMENTOS = ["Desayuno", "Almuerzo", "Merienda", "Cena", "Colación"];
+
+const SYSTEM_PROMPT_SUGERENCIAS = `Sos un nutricionista práctico de Argentina. La persona hace un déficit calórico para bajar de peso y te pide ideas concretas para lo que le queda del día.
+
+Reglas:
+- Proponé una opción por cada comida que le falta según la hora: por ejemplo, a las 16:30 faltan merienda y cena; a las 21:30, solo la cena; después de las 23, una colación muy liviana o nada. Si te piden un solo momento, proponé solo ese.
+- Entre todas las opciones no pases de las kcal que le quedan. Si le quedan menos de 150 kcal, proponé algo muy liviano (una infusión, verdura) y decilo en el resumen.
+- Priorizá lo que le falta: si le falta mucha proteína, que cada opción tenga proteína magra; no sumes carbohidratos ni grasas que ya están al tope.
+- Respetá el tipo de dieta.
+- Comidas simples y fáciles de conseguir en Argentina, con cantidades caseras claras (gramos, unidades, cucharadas), incluido el aceite si lleva.
+- No repitas lo que ya comió hoy ni nada de la lista "evitar".
+- Para cada opción estimá kcal, proteínas, carbohidratos y grasas en gramos, de forma realista.
+- resumen: una o dos frases en español rioplatense sobre cómo viene el día y la idea de las opciones.`;
+
+const ESQUEMA_SUGERENCIAS = {
+  type: "object",
+  properties: {
+    resumen: { type: "string" },
+    opciones: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { momento: { type: "string", enum: MOMENTOS }, comida: { type: "string" }, ...numeros(CAMPOS_BASE) },
+        required: ["momento", "comida", ...CAMPOS_BASE],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["resumen", "opciones"],
+  additionalProperties: false,
+};
+
+// Arma el pedido con lo que manda la app, validado y recortado. Devuelve null
+// si falta lo mínimo (la hora).
+function textoSugerencias(s) {
+  if (!s || typeof s !== "object") return null;
+  const hora = typeof s.hora === "string" && /^\d{1,2}:\d{2}$/.test(s.hora) ? s.hora : null;
+  if (!hora) return null;
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(Math.max(0, Math.min(n, 20000))) : 0; };
+  const lista = (v, max, largo) => (Array.isArray(v) ? v : [])
+    .filter((x) => typeof x === "string").slice(0, max)
+    .map((x) => x.trim().slice(0, largo)).filter(Boolean);
+  const dieta = Object.prototype.hasOwnProperty.call(DIETAS, s.dieta) ? s.dieta : "equilibrada";
+  const comidas = lista(s.comidas_hoy, 15, 150);
+  const evitar = lista(s.evitar, 10, 150);
+  const momento = MOMENTOS.includes(s.solo_momento) ? s.solo_momento : null;
+  return [
+    `Hora: ${hora}.`,
+    `Le quedan ${num(s.quedan_kcal)} kcal para el resto del día.`,
+    `Le falta para sus metas de hoy: proteínas ${num(s.faltan_proteinas_g)} g, carbohidratos ${num(s.faltan_carbohidratos_g)} g, grasas ${num(s.faltan_grasas_g)} g (0 = ya está al tope).`,
+    `Tipo de dieta: ${DIETAS[dieta]}.`,
+    `Ya comió hoy: ${comidas.length ? comidas.join("; ") : "nada todavía"}.`,
+    evitar.length ? `Evitar, ya se lo propusiste: ${evitar.join("; ")}.` : "",
+    momento ? `Proponé solo para: ${momento}.` : "",
+  ].filter(Boolean).join("\n");
+}
+
 // El cliente elige el perfil por nombre, nunca manda prompt ni esquema: así
-// el endpoint sigue sirviendo solo para estas dos cosas. Sin `perfil` se usa
-// el de la app original, que nunca lo manda.
+// el endpoint sigue sirviendo solo para estas cosas. Sin `perfil` se usa el
+// de la app original, que nunca lo manda. Un perfil con `armarTexto` no lleva
+// dictado ni foto: el texto lo arma el servidor con lo que manda la app.
 const PERFILES = {
   deficit: { system: SYSTEM_PROMPT, schema: ESQUEMA_NUTRICION },
   nutrientes: { system: SYSTEM_PROMPT_NUTRIENTES, schema: ESQUEMA_NUTRIENTES },
+  sugerencias: { system: SYSTEM_PROMPT_SUGERENCIAS, schema: ESQUEMA_SUGERENCIAS, armarTexto: (payload) => textoSugerencias(payload.sugerencia) },
 };
 
 function responder(statusCode, body) {
@@ -234,36 +306,41 @@ exports.handler = async function (event) {
   }
   const perfil = PERFILES[nombrePerfil];
 
-  const dictation = typeof payload.dictation === "string" ? payload.dictation.trim() : "";
-  const photo = payload.photo || null;
-
-  if (!dictation && !photo) {
-    return error(400, "sin_contenido", "Mandá un dictado, una foto, o las dos cosas.");
-  }
-  if (dictation.length > MAX_DICTATION_CHARS) {
-    return error(413, "dictado_muy_largo", "El dictado es demasiado largo.");
-  }
-
   const bloques = [];
+  if (perfil.armarTexto) {
+    const texto = perfil.armarTexto(payload);
+    if (!texto) return error(400, "pedido_incompleto", "Faltan datos para armar el pedido.");
+    bloques.push({ type: "text", text: texto });
+  } else {
+    const dictation = typeof payload.dictation === "string" ? payload.dictation.trim() : "";
+    const photo = payload.photo || null;
 
-  if (photo) {
-    if (!photo.data || typeof photo.data !== "string") {
-      return error(400, "foto_invalida", "La foto llegó incompleta.");
+    if (!dictation && !photo) {
+      return error(400, "sin_contenido", "Mandá un dictado, una foto, o las dos cosas.");
     }
-    if (!MEDIA_TYPES_VALIDOS.includes(photo.mediaType)) {
-      return error(415, "formato_no_soportado", "Ese formato de imagen no se puede analizar. Sacá la foto en JPG o PNG.");
+    if (dictation.length > MAX_DICTATION_CHARS) {
+      return error(413, "dictado_muy_largo", "El dictado es demasiado largo.");
     }
-    // base64 ocupa ~4/3 de los bytes reales.
-    if (photo.data.length * 0.75 > MAX_PHOTO_BYTES) {
-      return error(413, "foto_muy_grande", "La foto es demasiado grande.");
+
+    if (photo) {
+      if (!photo.data || typeof photo.data !== "string") {
+        return error(400, "foto_invalida", "La foto llegó incompleta.");
+      }
+      if (!MEDIA_TYPES_VALIDOS.includes(photo.mediaType)) {
+        return error(415, "formato_no_soportado", "Ese formato de imagen no se puede analizar. Sacá la foto en JPG o PNG.");
+      }
+      // base64 ocupa ~4/3 de los bytes reales.
+      if (photo.data.length * 0.75 > MAX_PHOTO_BYTES) {
+        return error(413, "foto_muy_grande", "La foto es demasiado grande.");
+      }
+      bloques.push({
+        type: "image",
+        source: { type: "base64", media_type: photo.mediaType, data: photo.data },
+      });
     }
-    bloques.push({
-      type: "image",
-      source: { type: "base64", media_type: photo.mediaType, data: photo.data },
-    });
+
+    bloques.push({ type: "text", text: dictation || "Analizá la foto adjunta." });
   }
-
-  bloques.push({ type: "text", text: dictation || "Analizá la foto adjunta." });
 
   let respuesta;
   try {

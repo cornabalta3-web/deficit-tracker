@@ -1,0 +1,8 @@
+{
+  "name": "deficit-tracker",
+  "private": true,
+  "description": "Déficit Tracker y Nutrientes. Sin build: index.html, mama/ y funciones de Netlify.",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.6"
+  }
+}
