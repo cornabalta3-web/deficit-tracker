@@ -17,12 +17,14 @@
     --text: #F2EFE9; --textDim: #9AA3AA; --amber: #E8A33D; --sage: #6FA98A; --rust: #C1584B;
     --protein: #6C93E8; --carbs: #D9823D; --fat: #B589E0;
     --meta: #5E9FC4; --cheat: #D97BA6;
+    --amberSoft: #2A2418; --sageSoft: #1D2E25;
   }
   [data-theme="light"] {
     --bg: #F7F5F0; --surface: #FFFFFF; --surfaceRaised: #EFEBE2; --line: #DDD6C8;
     --text: #23262B; --textDim: #6D7278; --amber: #B4791E; --sage: #3D8563; --rust: #B0402F;
     --protein: #3A5FC4; --carbs: #B5631F; --fat: #8354B8;
     --meta: #2F7398; --cheat: #B2457A;
+    --amberSoft: #F6EBD6; --sageSoft: #E1EFE7;
   }
   * { box-sizing: border-box; }
   body, #root { background: var(--bg); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; }
@@ -85,7 +87,7 @@
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
     height: calc(84px + env(safe-area-inset-bottom, 0px));
     background: var(--surface); border-top: 1px solid var(--line);
-    display: grid; grid-template-columns: repeat(3, 1fr); align-items: start; padding-top: 10px;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; padding-top: 10px;
   }
   .nav > button { display: flex; flex-direction: column; align-items: center; gap: 4px; height: 50px; justify-content: center; font-size: 11px; color: var(--textDim); }
   .nav > button.on { color: var(--amber); }
@@ -126,6 +128,29 @@
   .dia-abierto .meal-card { background: var(--bg); }
   .pie { text-align: center; font-size: 11px; color: var(--textDim); padding: 18px 0 4px; }
   .btn-danger { background: transparent; border: 1px solid var(--rust); color: var(--rust); border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 700; }
+
+  /* ---------- v17: Dieta, Lo de siempre, porciones, semana y nube ---------- */
+  .btn-sage:disabled, .btn-secondary:disabled { opacity: .5; }
+  .dieta-op { width: 100%; text-align: left; display: flex; align-items: center; gap: 12px; padding: 10px 12px; min-height: 52px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--text); }
+  .dieta-op.on { border-color: var(--amber); background: var(--amberSoft); }
+  .dieta-radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); flex-shrink: 0; }
+  .dieta-op.on .dieta-radio { border: 5px solid var(--amber); }
+  .veredicto { margin-top: 16px; background: var(--surfaceRaised); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.45; }
+  .sugerencia { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--bg); }
+  .sug-momento { font-size: 10px; color: var(--amber); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+  .frec { display: flex; align-items: center; gap: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .frec-sumar { min-height: 40px; padding: 0 14px; border: 1px solid var(--sage); color: var(--sage); border-radius: 10px; font-size: 13px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
+  .separador { display: flex; align-items: center; gap: 10px; margin: 14px 0; font-size: 11px; color: var(--textDim); }
+  .separador::before, .separador::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .porciones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .porciones > button { min-height: 44px; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 10px; font-size: 15px; }
+  .porciones > button.on { border: 2px solid var(--amber); background: var(--amberSoft); color: var(--amber); font-weight: 700; }
+  .dia-abierto .porciones > button { background: var(--surface); }
+  .dia-abierto .porciones > button.on { background: var(--amberSoft); }
+  .btn-fijo { width: 100%; min-height: 44px; border: 1px solid var(--amber); color: var(--amber); border-radius: 10px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-fijo.on { background: var(--amberSoft); }
+  .nube-icono { width: 36px; height: 36px; border-radius: 50%; background: var(--sageSoft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .codigo { flex: 1; min-width: 0; background: var(--surfaceRaised); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; font-weight: 700; letter-spacing: 1px; text-align: center; }
 </style>
 <!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
 <script src="nutrientes.js"></script>
@@ -155,8 +180,8 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v16-html · rediseño de Hoy y nutrientes en macro / micro";
-  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null };
+  const APP_VERSION = "v17-html · dieta, lo de siempre, porciones, semana y nube";
+  const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", proteinTarget: null, dieta: "equilibrada" };
 
   let meals = [];
   let dayMeta = {};
@@ -165,7 +190,7 @@
   let loading = true;
 
   // UI-only state
-  let activeTab = "hoy";          // hoy | historial | progreso | ajustes
+  let activeTab = "hoy";          // hoy | dieta | historial | progreso | ajustes
   let showCapture = false;        // hoja inferior para cargar una comida
   // El textarea se destruye en cada render (reconstruimos innerHTML entero), así
   // que guardamos lo tipeado acá antes de redibujar. Sin esto, adjuntar una foto
@@ -458,22 +483,31 @@ function todayISO() {
   // ---------- storage ----------
   async function loadAll() {
     try {
-      const [m, dm, g, w] = await Promise.all([
+      const [m, dm, g, w, fr] = await Promise.all([
         window.storage.get("meals").catch(() => null),
         window.storage.get("dayMeta").catch(() => null),
         window.storage.get("goal").catch(() => null),
         window.storage.get("weighIns").catch(() => null),
+        window.storage.get("frecuentes").catch(() => null),
       ]);
       meals = m ? JSON.parse(m.value) : [];
       dayMeta = dm ? JSON.parse(dm.value) : {};
       goal = g ? { ...DEFAULT_GOAL, ...JSON.parse(g.value) } : { ...DEFAULT_GOAL };
       weighIns = w ? JSON.parse(w.value) : [];
+      frecuentes = fr ? JSON.parse(fr.value) : [];
     } catch (e) {
-      meals = []; dayMeta = {}; goal = { ...DEFAULT_GOAL }; weighIns = [];
+      meals = []; dayMeta = {}; goal = { ...DEFAULT_GOAL }; weighIns = []; frecuentes = [];
     } finally {
+      cargarSugerencias();
+      cargarNube();
       loading = false;
       applyTheme();
       render();
+      // Quien ya usaba la app antes de la v17 sube su copia la primera vez.
+      if (goal.onboarded) {
+        asegurarCodigo();
+        if (!nube.guardado) guardarEnNube();
+      }
     }
   }
   async function persistMeals() { try { await window.storage.set("meals", JSON.stringify(meals)); } catch (e) { console.error(e); } }
@@ -531,6 +565,7 @@ function todayISO() {
   window.setTab = function (tab) {
     activeTab = tab;
     showCapture = false;
+    nubeMsg = null;
     window.scrollTo(0, 0);
     render();
   };
@@ -651,7 +686,7 @@ function todayISO() {
   // ---------- backup ----------
   window.exportBackup = function () {
     try {
-      const backup = { exportedAt: new Date().toISOString(), meals, dayMeta, goal, weighIns };
+      const backup = { exportedAt: new Date().toISOString(), meals, dayMeta, goal, weighIns, frecuentes };
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -668,12 +703,22 @@ function todayISO() {
     dayMeta = {};
     weighIns = [];
     goal = { ...DEFAULT_GOAL };
+    frecuentes = [];
+    sugerencias = null; sugerenciasError = ""; semanaSel = null;
+    // La copia en la nube no se toca: queda guardada con el código viejo (por
+    // si te arrepentís) y al volver a empezar se arma un código nuevo.
+    clearTimeout(nubeTimer);
+    nube = { codigo: null, guardado: null, estado: "nuevo" };
+    nubeMsg = null; nubeEncontrada = null;
     try {
       await Promise.all([
         window.storage.delete("meals").catch(() => null),
         window.storage.delete("dayMeta").catch(() => null),
         window.storage.delete("goal").catch(() => null),
         window.storage.delete("weighIns").catch(() => null),
+        window.storage.delete("frecuentes").catch(() => null),
+        window.storage.delete("sugerencias").catch(() => null),
+        window.storage.delete("nube").catch(() => null),
       ]);
     } catch (e) { console.error(e); }
     expanded = true; expandedDays = {}; showSettings = false; showResetConfirm = false;
@@ -694,6 +739,7 @@ function todayISO() {
         if (obj.dayMeta) { dayMeta = obj.dayMeta; await persistDayMeta(); }
         if (obj.goal) { goal = { ...DEFAULT_GOAL, ...obj.goal }; await persistGoal(); }
         if (Array.isArray(obj.weighIns)) { weighIns = obj.weighIns; await persistWeighIns(); }
+        if (Array.isArray(obj.frecuentes)) { frecuentes = obj.frecuentes; persistFrecuentes(); }
         importMsg = "Copia de seguridad restaurada correctamente.";
       } catch (err) {
         importMsg = "No se pudo leer ese archivo de respaldo.";
@@ -835,6 +881,7 @@ function todayISO() {
       // Dos causas distintas: antes compartían mensaje y no se podía saber cuál era.
       token_invalido: "Falta el token de la app. Si activaste APP_SHARED_TOKEN en Netlify, borrá esa variable: el frontend todavía no lo manda.",
       origen_no_permitido: "El servidor rechazó la dirección desde la que abriste la app. Fijate desde qué URL estás entrando.",
+      pedido_incompleto: "Faltan datos para armar las sugerencias. Probá de nuevo.",
     };
     if (e && e.codigo && porCodigo[e.codigo]) return porCodigo[e.codigo];
     // TypeError es lo que tira fetch cuando directamente no hay red.
@@ -911,7 +958,12 @@ function todayISO() {
     const carbs = parseFloat(document.getElementById("edit-meal-carbs-" + id).value) || 0;
     const fat = parseFloat(document.getElementById("edit-meal-fat-" + id).value) || 0;
     const note = document.getElementById("edit-meal-note-" + id).value;
-    meals = meals.map((m) => (m.id === id ? { ...m, date, consumed, protein, carbs, fat, note } : m));
+    meals = meals.map((m) => {
+      if (m.id !== id) return m;
+      const out = { ...m, date, consumed, protein, carbs, fat, note };
+      delete out.base; delete out.porcion;
+      return out;
+    });
     persistMeals();
     editingMealId = null;
     render();
@@ -1026,6 +1078,10 @@ function todayISO() {
           ${onboardError ? `<div class="small" style="color:var(--rust);background:var(--surfaceRaised);border:1px solid var(--rust);border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.45;">${esc(onboardError)}</div>` : ""}
           <button class="btn-primary" onclick="completeOnboarding()">Calcular mi gasto base y empezar</button>
         </div>
+        <div class="card" style="margin:16px 0 0;">
+          <div class="small" style="font-weight:700;">¿Ya la usabas en otro celular?</div>
+          ${recuperarHTML("Pegá el código de Ajustes → Tus datos en la nube del celular viejo. Se baja todo y no hace falta completar lo de arriba.", true)}
+        </div>
       </div>`;
   }
 
@@ -1054,6 +1110,9 @@ function todayISO() {
     back: '<path d="m15 18-6-6 6-6"></path>',
     chevR: '<path d="m9 6 6 6-6 6"></path>',
     up: '<path d="m6 15 6-6 6 6"></path>',
+    dieta: '<path d="M5 21V11a7 7 0 0 1 14 0v10"></path><path d="M3 21h18"></path><path d="M12 4V2"></path>',
+    star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path>',
+    nube: '<path d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z"></path><path d="m9.5 13.5 2 2 3.5-4"></path>',
   };
   function icon(name, color, size, sw) {
     return `<svg width="${size || 21}" height="${size || 21}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
@@ -1063,22 +1122,23 @@ function todayISO() {
   // dividir, y acá necesitamos que dos fechas iguales den 0 para ubicar puntos.
   function dayDiff(a, b) { return Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000); }
 
-  // v16: tres lugares nomás. Progreso se abre desde la tarjeta "Tu objetivo"
-  // y Ajustes desde arriba a la derecha: se usan una vez por semana o por mes,
-  // y con cinco botones el + no quedaba centrado si sacabas uno.
+  // v17: cinco lugares con el + en el medio. Dieta y Progreso (con el resumen
+  // de la semana) se usan seguido; Ajustes sigue arriba a la derecha.
   function navMarkup() {
     const item = (tab, ic, label) =>
       `<button class="${activeTab === tab ? "on" : ""}" onclick="setTab('${tab}')">${icon(ic, activeTab === tab ? "var(--amber)" : "var(--textDim)", 22)}<span>${label}</span></button>`;
     return `<div class="nav">
       ${item("hoy", "home", "Hoy")}
+      ${item("dieta", "dieta", "Dieta")}
       <div style="display:flex;justify-content:center;">
         <button class="cap" onclick="openCapture()" aria-label="Cargar comida">${icon("plus", "#1A1300", 28, 2.2)}</button>
       </div>
       ${item("historial", "list", "Historial")}
+      ${item("progreso", "chart", "Progreso")}
     </div>`;
   }
 
-  // La versión a la vista, abajo de Hoy y del Historial: para saber si ya
+  // La versión a la vista, abajo de cada pantalla de la barra: para saber si ya
   // llegó un cambio sin tener que entrar a Ajustes.
   function pieVersion() {
     const v = (APP_VERSION.match(/^v(\d+)/) || [])[1] || APP_VERSION;
@@ -1311,7 +1371,8 @@ function todayISO() {
         </div>
         <div style="text-align:right;flex-shrink:0;">
           <div style="font-size:15px;font-weight:700;">${kcal(m.consumed)} <span class="xs dim" style="font-weight:400;">kcal</span></div>
-          ${m.score != null ? `<div class="xs dim" style="margin-top:4px;"><span class="dot" style="background:${nutritionColor(m.score)};"></span>${m.score}/10</div>` : ""}
+          ${m.base ? `<div class="xs dim" style="margin-top:4px;text-decoration:line-through;">${kcal(m.base.consumed)}</div>`
+            : m.score != null ? `<div class="xs dim" style="margin-top:4px;"><span class="dot" style="background:${nutritionColor(m.score)};"></span>${m.score}/10</div>` : ""}
         </div>
         ${icon(abierta ? "up" : "chevR", "var(--textDim)", 16)}
       </button>`;
@@ -1320,6 +1381,7 @@ function todayISO() {
       if (borrando) {
         h += confirmarBorrarHTML(m);
       } else {
+        h += porcionesHTML(m);
         h += `<div class="grid3" style="gap:8px;">
           <div class="tile"><div class="stat-mini">Proteína</div><div style="color:var(--protein);">${m.protein.toFixed(0)} g</div></div>
           <div class="tile"><div class="stat-mini">Carbos</div><div style="color:var(--carbs);">${m.carbs.toFixed(0)} g</div></div>
@@ -1327,7 +1389,9 @@ function todayISO() {
         </div>`;
         h += m.nutrientes
           ? `<div>${bloqueNutrientes(nutrientesDeComida(m), 0, mealNutrOpen, "toggleMealNutr()")}</div>`
-          : `<div class="xs dim">Sin detalle de nutrientes: se cargó antes de la v15.</div>`;
+          : `<div class="xs dim">${m.sugerida ? "Vino de una sugerencia: tiene calorías y macros, sin detalle de vitaminas y minerales." : "Sin detalle de nutrientes: se cargó antes de la v15."}</div>`;
+        const fijo = esFijo(m);
+        h += `<button class="btn-fijo ${fijo ? "on" : ""}" onclick="toggleFijo('${m.id}')" aria-pressed="${fijo}">${icon("star", "var(--amber)", 15).replace('fill="none"', `fill="${fijo ? "var(--amber)" : "none"}"`)} ${fijo ? 'En "Lo de siempre" · quitar' : 'Guardar en "Lo de siempre"'}</button>`;
         h += `<div class="row gap10">
           <button class="btn-secondary" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="startEditMeal('${m.id}')">${icon("pencil", "var(--text)", 15)} Editar</button>
           <button class="btn-secondary" style="flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--textDim);" onclick="askDeleteMeal('${m.id}')">${icon("trash", "var(--textDim)", 15)} Borrar</button>
@@ -1336,6 +1400,677 @@ function todayISO() {
       h += `</div>`;
     }
     return h + `</div>`;
+  }
+
+  // ================== v17: dieta, lo de siempre, porciones, semana, nube ==================
+
+  // ---------- dieta ----------
+  //
+  // La proteína es la meta de Ajustes (por kilo), sea cual sea la dieta. La
+  // dieta reparte el resto del límite del día entre carbohidratos y grasas:
+  // `carbos` es la parte de esas calorías que va a carbohidratos.
+  const DIETAS = [
+    { k: "equilibrada", nombre: "Equilibrada", detalle: "De todo un poco", carbos: 0.6 },
+    { k: "alta_proteina", nombre: "Alta en proteína", detalle: "Carnes magras, huevo, lácteos", carbos: 0.5 },
+    { k: "baja_carbos", nombre: "Baja en carbohidratos", detalle: "Menos pan, pastas y azúcar", carbos: 0.3 },
+    { k: "mediterranea", nombre: "Mediterránea", detalle: "Oliva, pescado, legumbres", carbos: 0.55 },
+    { k: "vegetariana", nombre: "Vegetariana", detalle: "Sin carne ni pescado", carbos: 0.65 },
+  ];
+  function dietaActual() { return DIETAS.find((d) => d.k === goal.dieta) || DIETAS[0]; }
+
+  // Metas de hoy en gramos y lo que ya se comió, para Dieta y las sugerencias.
+  function objetivosDelDia(c) {
+    const d = dietaActual();
+    const cheat = !!(dayMeta[c.todayStr] && dayMeta[c.todayStr].cheat);
+    const gasto = c.todayStats ? c.todayStats.gasto : goal.maintenance;
+    const meta = metaDiaria(c);
+    const limite = Math.max(0, gasto - meta);
+    const proteina = c.proteinTarget;
+    const resto = Math.max(0, limite - proteina * 4);
+    const t = c.todayStats || { consumed: 0, protein: 0, carbs: 0, fat: 0, meals: [] };
+    return {
+      dieta: d, cheat, gasto, meta, limite,
+      metas: { p: proteina, c: (resto * d.carbos) / 4, g: (resto * (1 - d.carbos)) / 9 },
+      comido: { kcal: t.consumed, p: t.protein, c: t.carbs, g: t.fat },
+      quedan: Math.max(0, limite - t.consumed),
+      comidas: t.meals,
+    };
+  }
+
+  // Cómo va un macro contra su meta: texto corto y color.
+  function estadoMacro(comido, metaG, esProteina) {
+    if (!(metaG > 0)) return { texto: `${Math.round(comido)} g`, color: "var(--textDim)" };
+    const r = comido / metaG;
+    const dif = Math.round(Math.abs(metaG - comido));
+    if (r > 1.05) return { texto: esProteina ? "¡llegaste!" : `te pasaste ${dif} g`, color: esProteina ? "var(--sage)" : "var(--rust)" };
+    if (r >= 0.95) return { texto: esProteina ? "¡llegaste!" : "al tope", color: esProteina ? "var(--sage)" : "var(--amber)" };
+    return { texto: esProteina ? `te faltan ${dif} g` : `te quedan ${dif} g`, color: "var(--text)" };
+  }
+
+  function veredictoDelDia(o) {
+    if (o.cheat) return "Hoy es día cheat: no hay límite. Las calorías cuentan igual para el total.";
+    if (o.comido.kcal > o.limite) return `Ya pasaste tu límite de hoy por ${kcal(o.comido.kcal - o.limite)} kcal. Si comés algo más, que sea liviano: verdura o proteína magra.`;
+    const topes = [];
+    if (o.metas.c > 0 && o.comido.c >= o.metas.c * 0.95) topes.push("los carbohidratos");
+    if (o.metas.g > 0 && o.comido.g >= o.metas.g * 0.95) topes.push("las grasas");
+    const faltaP = Math.round(o.metas.p - o.comido.p);
+    if (topes.length && faltaP > 0) return `Vas bien de calorías, pero ${topes.join(" y ")} ya están al tope. <b>Lo que queda, que sea proteína magra y verdura.</b>`;
+    if (topes.length) return `Vas bien de calorías, pero ${topes.join(" y ")} ya están al tope. <b>Lo que queda, que sea verdura y algo liviano.</b>`;
+    if (faltaP > 30) return `Vas bien. Te faltan ${faltaP} g de proteína: <b>priorizala en lo que queda.</b>`;
+    return "Vas bien en todo. Seguí así.";
+  }
+
+  window.elegirDieta = function (k) {
+    if (!DIETAS.some((d) => d.k === k)) return;
+    goal = { ...goal, dieta: k };
+    persistGoal();
+    render();
+  };
+
+  // ---------- sugerencias: qué comer el resto del día ----------
+  //
+  // Se guardan con la fecha: si cambiás de pantalla o cerrás la app no se
+  // pierden, y al otro día se descartan solas.
+  let sugerencias = null;          // {fecha, resumen, opciones:[{momento, comida, kcal, ..., comida_ok}]}
+  let sugiriendo = false;          // true, o el índice de la opción que se está cambiando
+  let sugerenciasError = "";
+  function persistSugerencias() { try { localStorage.setItem("deficit_sugerencias", JSON.stringify(sugerencias)); } catch (e) { console.error(e); } }
+  function cargarSugerencias() {
+    try {
+      const s = JSON.parse(localStorage.getItem("deficit_sugerencias") || "null");
+      sugerencias = s && s.fecha === todayISO() && Array.isArray(s.opciones) ? s : null;
+    } catch (e) { sugerencias = null; }
+  }
+  function horaLocal() { const d = new Date(); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; }
+  function limpiarOpcion(o) {
+    return {
+      momento: String(o.momento || "Comida"), comida: String(o.comida || ""),
+      kcal: Math.max(0, Number(o.kcal) || 0), proteinas_g: Math.max(0, Number(o.proteinas_g) || 0),
+      carbohidratos_g: Math.max(0, Number(o.carbohidratos_g) || 0), grasas_g: Math.max(0, Number(o.grasas_g) || 0),
+    };
+  }
+
+  async function pedirSugerenciasAlServidor(extra) {
+    const o = objetivosDelDia(computeCtx());
+    const sugerencia = {
+      hora: horaLocal(),
+      quedan_kcal: Math.round(o.quedan),
+      faltan_proteinas_g: Math.round(Math.max(0, o.metas.p - o.comido.p)),
+      faltan_carbohidratos_g: Math.round(Math.max(0, o.metas.c - o.comido.c)),
+      faltan_grasas_g: Math.round(Math.max(0, o.metas.g - o.comido.g)),
+      dieta: o.dieta.k,
+      comidas_hoy: o.comidas.map((m) => m.note).slice(0, 15),
+      ...extra,
+    };
+    const r = await fetch("/.netlify/functions/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ perfil: "sugerencias", sugerencia }),
+    });
+    const obj = await r.json();
+    if (!r.ok) { const err = new Error(obj.error || "Error"); err.codigo = obj.code; throw err; }
+    return { resumen: String(obj.resumen || ""), opciones: (obj.opciones || []).map(limpiarOpcion) };
+  }
+
+  window.pedirSugerencias = async function () {
+    sugiriendo = true; sugerenciasError = "";
+    render();
+    try {
+      const evitar = sugerencias ? sugerencias.opciones.map((x) => x.comida) : [];
+      const res = await pedirSugerenciasAlServidor(evitar.length ? { evitar } : {});
+      sugerencias = { fecha: todayISO(), resumen: res.resumen, opciones: res.opciones };
+      persistSugerencias();
+    } catch (e) {
+      console.error(e);
+      sugerenciasError = mensajeDeError(e);
+    } finally {
+      sugiriendo = false;
+      render();
+    }
+  };
+
+  window.otraOpcion = async function (i) {
+    if (!sugerencias || !sugerencias.opciones[i]) return;
+    sugiriendo = i; sugerenciasError = "";
+    render();
+    try {
+      const actual = sugerencias.opciones[i];
+      const evitar = sugerencias.opciones.map((x) => x.comida).concat((sugerencias.descartadas || []).slice().reverse());
+      const res = await pedirSugerenciasAlServidor({ solo_momento: actual.momento, evitar });
+      const nueva = res.opciones.find((x) => x.momento === actual.momento) || res.opciones[0];
+      if (nueva) {
+        sugerencias.descartadas = (sugerencias.descartadas || []).concat(actual.comida).slice(-10);
+        sugerencias.opciones[i] = nueva;
+        persistSugerencias();
+      }
+    } catch (e) {
+      console.error(e);
+      sugerenciasError = mensajeDeError(e);
+    } finally {
+      sugiriendo = false;
+      render();
+    }
+  };
+
+  // "Lo comí": entra como una comida más de hoy, con los números de la
+  // sugerencia y sin gastar otro análisis (por eso sin detalle de vitaminas).
+  window.comiSugerencia = function (i) {
+    if (!sugerencias || !sugerencias.opciones[i]) return;
+    const o = sugerencias.opciones[i];
+    agregarComida({ id: uid(), date: todayISO(), consumed: o.kcal, protein: o.proteinas_g, carbs: o.carbohidratos_g, fat: o.grasas_g, note: `${o.momento}: ${o.comida}`, sugerida: true, createdAt: Date.now() });
+    sugerencias.opciones.splice(i, 1);
+    persistSugerencias();
+    render();
+  };
+
+  // Suma una comida ya armada (de Lo de siempre o de una sugerencia) y deja
+  // congelado el gasto base del día, igual que confirmSave.
+  function agregarComida(meal) {
+    meals = [meal, ...meals];
+    persistMeals();
+    const existing = dayMeta[meal.date] || { totalExpenditure: null, exerciseKcal: 0 };
+    if (existing.maintenanceSnapshot == null) {
+      dayMeta = { ...dayMeta, [meal.date]: { ...existing, maintenanceSnapshot: goal.maintenance } };
+      persistDayMeta();
+    }
+  }
+
+  // ---------- PANTALLA: DIETA ----------
+  function screenDieta(c) {
+    const o = objetivosDelDia(c);
+    const fecha = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+    let h = `<div class="screen">
+      <div class="topbar">
+        <div>
+          <div style="font-size:26px;font-weight:700;line-height:1.1;">Dieta</div>
+          <div class="small dim" style="margin-top:2px;">${esc(fecha.charAt(0).toUpperCase() + fecha.slice(1))}</div>
+        </div>
+        <button class="icon-btn" onclick="setTab('ajustes')" aria-label="Ajustes">${icon("sliders", "var(--textDim)", 22)}</button>
+      </div>`;
+
+    h += `<div class="card">
+      <div class="hero-label" style="margin-bottom:10px;">Tu tipo de dieta</div>
+      <div class="col gap8">
+        ${DIETAS.map((d) => {
+          const on = d.k === o.dieta.k;
+          return `<button class="dieta-op ${on ? "on" : ""}" onclick="elegirDieta('${d.k}')" aria-pressed="${on}">
+            <span class="dieta-radio"></span>
+            <span style="flex:1;min-width:0;"><span style="display:block;font-size:14px;font-weight:700;">${d.nombre}</span><span class="xs dim">${d.detalle}</span></span>
+            <span class="xs" style="white-space:nowrap;color:${on ? "var(--amber)" : "var(--textDim)"};${on ? "font-weight:700;" : ""}">C ${Math.round(d.carbos * 100)} · G ${Math.round((1 - d.carbos) * 100)}</span>
+          </button>`;
+        }).join("")}
+      </div>
+      <div class="xs dim" style="margin-top:10px;line-height:1.45;">La proteína es tu meta de Ajustes (${c.proteinTarget} g). La dieta reparte el resto de las calorías entre carbohidratos (C) y grasas (G).</div>
+    </div>`;
+
+    const fila = (nombre, comido, metaG, color, esP) => {
+      const e = estadoMacro(comido, metaG, esP);
+      const pct = metaG > 0 ? Math.min(100, (comido / metaG) * 100) : 0;
+      return `<div>
+        <div class="row" style="justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:6px;gap:8px;">
+          <span style="font-weight:700;">${nombre}</span>
+          <span class="dim"><b style="color:${color};">${Math.round(comido)}</b> de ${Math.round(metaG)} g · <span style="color:${e.color};font-weight:700;">${e.texto}</span></span>
+        </div>
+        <div class="track" style="height:8px;"><i style="width:${pct.toFixed(0)}%;background:${color};"></i></div>
+      </div>`;
+    };
+    h += `<div class="card">
+      <div class="hero-label">Cómo viene el día</div>
+      <div class="row" style="align-items:baseline;gap:8px;margin-top:6px;">
+        <div style="font-size:36px;font-weight:700;line-height:1;color:${o.cheat ? "var(--cheat)" : o.comido.kcal > o.limite ? "var(--rust)" : "var(--sage)"};">${o.cheat ? kcal(o.comido.kcal) : kcal(o.quedan)}</div>
+        <div class="small dim">${o.cheat ? "kcal comidas hoy" : `kcal libres de <b style="color:var(--text);">${kcal(o.limite)}</b>`}</div>
+      </div>
+      <div class="col" style="gap:14px;margin-top:18px;">
+        ${fila("Proteína", o.comido.p, o.metas.p, "var(--protein)", true)}
+        ${fila("Carbohidratos", o.comido.c, o.metas.c, "var(--carbs)", false)}
+        ${fila("Grasas", o.comido.g, o.metas.g, "var(--fat)", false)}
+      </div>
+      <div class="veredicto">${veredictoDelDia(o)}</div>
+    </div>`;
+
+    // ¿Qué como el resto del día?
+    h += `<div class="card">
+      <div class="title" style="font-size:17px;">¿Qué como el resto del día?</div>
+      <div class="small dim" style="margin-top:4px;">Son las ${horaLocal()}. Te propongo opciones que entran en lo que te queda.</div>`;
+    if (sugerenciasError) h += `<div class="small" style="color:var(--rust);margin-top:12px;">${esc(sugerenciasError)}</div>`;
+    const ops = sugerencias ? sugerencias.opciones : [];
+    if (sugerencias && sugerencias.resumen) h += `<div class="veredicto">${esc(sugerencias.resumen)}</div>`;
+    ops.forEach((op, i) => {
+      const cambiando = sugiriendo === i;
+      h += `<div class="sugerencia">
+        <div class="sug-momento">${esc(op.momento)}</div>
+        <div style="font-size:14px;line-height:1.35;margin-top:4px;">${esc(op.comida)}</div>
+        <div class="xs dim" style="margin-top:4px;"><b style="color:var(--text);">${kcal(op.kcal)} kcal</b> · ${macroInline(op.proteinas_g, op.carbohidratos_g, op.grasas_g)} g</div>
+        <div class="row gap8" style="margin-top:10px;">
+          <button class="btn-sage" style="flex:1;min-height:42px;" onclick="comiSugerencia(${i})" ${sugiriendo !== false ? "disabled" : ""}>Lo comí</button>
+          <button class="btn-secondary" style="flex:1;min-height:42px;" onclick="otraOpcion(${i})" ${sugiriendo !== false ? "disabled" : ""}>${cambiando ? '<span class="spin">↻</span> Buscando…' : "Otra opción"}</button>
+        </div>
+      </div>`;
+    });
+    if (ops.length) {
+      const tot = ops.reduce((s, x) => ({ k: s.k + x.kcal, p: s.p + x.proteinas_g }), { k: 0, p: 0 });
+      h += `<div class="xs dim" style="margin-top:12px;line-height:1.45;">Con ${ops.length > 1 ? "estas" : "esta"} cerrás el día en <b style="color:var(--text);">${kcal(o.comido.kcal + tot.k)} kcal</b> y <b style="color:var(--text);">${Math.round(o.comido.p + tot.p)} g de proteína</b>.</div>`;
+    }
+    const cargandoTodo = sugiriendo === true;
+    h += `<button class="${ops.length ? "btn-secondary" : "btn-primary"} big-btn" style="width:100%;margin-top:14px;" onclick="pedirSugerencias()" ${sugiriendo !== false ? "disabled" : ""}>
+        ${cargandoTodo ? '<span class="spin">↻</span> Pensando…' : ops.length ? "Sugerime otras" : "Sugerime"}
+      </button>
+      <div class="xs dim" style="margin-top:8px;">Cada pedido de sugerencias gasta un análisis, como cargar una comida.</div>
+    </div>`;
+
+    return h + pieVersion() + `</div>`;
+  }
+
+  // ---------- lo de siempre (comidas frecuentes) ----------
+  //
+  // Dos fuentes: las que marcaste con ★ (se guarda una copia, con la porción
+  // de ese momento) y las que cargaste 3 veces o más con el mismo texto (pasa
+  // seguido justamente al sumarlas desde acá). Sumarlas no gasta análisis.
+  let frecuentes = [];             // [{clave, note, consumed, protein, carbs, fat, nutrientes, score, comment}]
+  const VECES_FRECUENTE = 3;
+  function persistFrecuentes() { try { window.storage.set("frecuentes", JSON.stringify(frecuentes)); } catch (e) { console.error(e); } }
+  function claveNota(note) { return String(note || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function esFijo(m) { const k = claveNota(m.note); return frecuentes.some((f) => f.clave === k); }
+  function copiaDeComida(m) {
+    return { clave: claveNota(m.note), note: m.note, consumed: m.consumed, protein: m.protein, carbs: m.carbs, fat: m.fat, nutrientes: m.nutrientes || null, score: m.score, comment: m.comment };
+  }
+  function listaFrecuentes() {
+    const fijos = frecuentes.map((f) => ({ ...f, fijo: true, veces: 0 }));
+    const vistos = new Set(fijos.map((f) => f.clave));
+    const grupos = {};
+    meals.forEach((m) => {
+      const k = claveNota(m.note);
+      if (!k || vistos.has(k)) return;
+      if (!grupos[k]) grupos[k] = { veces: 0, ultima: m };
+      grupos[k].veces++;
+      if (m.createdAt > grupos[k].ultima.createdAt) grupos[k].ultima = m;
+    });
+    const auto = Object.values(grupos).filter((g) => g.veces >= VECES_FRECUENTE)
+      .sort((a, b) => b.veces - a.veces)
+      .map((g) => ({ ...copiaDeComida(g.ultima), fijo: false, veces: g.veces }));
+    return fijos.concat(auto).slice(0, 12);
+  }
+  // Por posición en la lista y no por el texto: una nota con apóstrofo
+  // ("McDonald's") rompía el onclick.
+  window.sumarFrecuente = function (i) {
+    const f = listaFrecuentes()[i];
+    if (!f) return;
+    const date = captureDate || todayISO();
+    const meal = { id: uid(), date, consumed: f.consumed, protein: f.protein, carbs: f.carbs, fat: f.fat, note: f.note, createdAt: Date.now() };
+    if (f.nutrientes) meal.nutrientes = f.nutrientes;
+    if (f.score != null) { meal.score = f.score; meal.comment = f.comment; }
+    agregarComida(meal);
+    showCapture = false; captureDate = null;
+    activeTab = date === todayISO() ? "hoy" : "historial";
+    expandedDays = { ...expandedDays, [date]: true };
+    render();
+  };
+  window.toggleFijo = function (id) {
+    const m = meals.find((x) => x.id === id);
+    if (!m) return;
+    const k = claveNota(m.note);
+    frecuentes = esFijo(m) ? frecuentes.filter((f) => f.clave !== k) : [copiaDeComida(m), ...frecuentes].slice(0, 30);
+    persistFrecuentes();
+    render();
+  };
+  window.quitarFrecuente = function (i) {
+    const f = listaFrecuentes()[i];
+    if (!f) return;
+    frecuentes = frecuentes.filter((x) => x.clave !== f.clave);
+    persistFrecuentes();
+    render();
+  };
+  function frecuentesHTML() {
+    const lista = listaFrecuentes();
+    if (!lista.length) {
+      return `<div class="xs dim" style="margin-bottom:14px;line-height:1.45;">Tip: abrí una comida y tocá ★ para tenerla acá y sumarla con un toque, sin gastar análisis.</div>`;
+    }
+    return `<div class="hero-label" style="color:var(--amber);">★ Lo de siempre</div>
+      <div class="xs dim" style="margin:4px 0 10px;">Un toque y se suma${captureDate && captureDate !== todayISO() ? ` al ${esc(formatDate(captureDate))}` : " a hoy"}. No gasta ningún análisis.</div>
+      <div class="col gap8" style="margin-bottom:6px;">
+        ${lista.map((f, i) => `<div class="frec">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;">${esc(f.note)}</div>
+            <div class="xs dim" style="margin-top:2px;"><b style="color:var(--text);">${kcal(f.consumed)} kcal</b> · <span style="color:var(--protein);">P ${Math.round(f.protein)}</span> · ${f.fijo ? "marcada ★" : `la cargaste ${f.veces} veces`}</div>
+          </div>
+          ${f.fijo ? `<button class="btn-ghost" onclick="quitarFrecuente(${i})" aria-label="Quitar de Lo de siempre">${icon("close", "var(--textDim)", 16)}</button>` : ""}
+          <button class="frec-sumar" onclick="sumarFrecuente(${i})">+ Sumar</button>
+        </div>`).join("")}
+      </div>
+      <div class="separador"><span>o contá algo nuevo</span></div>`;
+  }
+
+  // ---------- porciones ----------
+  //
+  // La primera vez que cambiás la porción se guarda el original en `base`, así
+  // ½ → 2 → 1 vuelve exacto a lo que era. Editar a mano borra `base`: desde ahí
+  // manda lo que escribiste.
+  const PORCIONES = [[0.5, "½"], [1, "1"], [1.5, "1½"], [2, "2"]];
+  window.setPorcion = function (id, factor) {
+    meals = meals.map((m) => {
+      if (m.id !== id) return m;
+      const base = m.base || { consumed: m.consumed, protein: m.protein, carbs: m.carbs, fat: m.fat, nutrientes: m.nutrientes || null };
+      if (factor === 1) {
+        const out = { ...m, consumed: base.consumed, protein: base.protein, carbs: base.carbs, fat: base.fat };
+        if (base.nutrientes) out.nutrientes = base.nutrientes;
+        delete out.base; delete out.porcion;
+        return out;
+      }
+      const out = { ...m, base, porcion: factor, consumed: base.consumed * factor, protein: base.protein * factor, carbs: base.carbs * factor, fat: base.fat * factor };
+      if (base.nutrientes) {
+        out.nutrientes = {};
+        Object.keys(base.nutrientes).forEach((k) => { out.nutrientes[k] = (Number(base.nutrientes[k]) || 0) * factor; });
+      }
+      return out;
+    });
+    persistMeals();
+    render();
+  };
+  function porcionesHTML(m) {
+    const actual = m.porcion || 1;
+    return `<div>
+      <div class="small" style="font-weight:700;margin-bottom:8px;">¿Cuánto comiste?</div>
+      <div class="porciones">
+        ${PORCIONES.map(([f, txt]) => `<button class="${f === actual ? "on" : ""}" onclick="setPorcion('${m.id}', ${f})" aria-pressed="${f === actual}">${txt}</button>`).join("")}
+      </div>
+      <div class="xs dim" style="margin-top:6px;">${m.base ? `Antes: ${kcal(m.base.consumed)} kcal. ` : ""}Recalcula calorías, macros y nutrientes sin gastar análisis.</div>
+    </div>`;
+  }
+
+  // ---------- resumen de la semana ----------
+  //
+  // Los últimos 7 días contra el límite. El límite de cada día es su gasto
+  // menos la meta diaria de hoy: es una aproximación (la meta va cambiando un
+  // poco día a día), pero alcanza para ver si te pasaste o no.
+  let semanaSel = null;
+  window.selDiaSemana = function (i) { semanaSel = semanaSel === i ? null : i; render(); };
+  function datosSemana(c) {
+    const meta = metaDiaria(c);
+    const dias = [];
+    for (let i = 6; i >= 0; i--) {
+      const fecha = addDaysISO(c.todayStr, -i);
+      const d = c.dayStats.find((x) => x.date === fecha);
+      const esHoy = fecha === c.todayStr;
+      const gasto = d ? d.gasto : goal.maintenance;
+      const limite = Math.max(0, gasto - meta);
+      let estado = "vacio";
+      if (esHoy) estado = "hoy";
+      else if (d && d.cheat) estado = "cheat";
+      else if (d) estado = d.consumed <= limite ? "ok" : "pasado";
+      dias.push({ fecha, d, esHoy, limite, gasto, consumido: d ? d.consumed : 0, proteina: d ? d.protein : 0, estado });
+    }
+    const completos = dias.filter((x) => x.d && !x.esHoy);
+    const contables = completos.filter((x) => x.estado !== "cheat");
+    return {
+      dias,
+      dentro: contables.filter((x) => x.estado === "ok").length,
+      contables: contables.length,
+      promedio: completos.length ? completos.reduce((s, x) => s + x.consumido, 0) / completos.length : 0,
+      proteina: completos.length ? completos.reduce((s, x) => s + x.proteina, 0) / completos.length : 0,
+      deficit: completos.reduce((s, x) => s + x.d.net, 0),
+    };
+  }
+  function semanaHTML(c) {
+    const s = datosSemana(c);
+    const W = 320, H = 160, BASE = 150, slot = W / 7, ancho = 26;
+    const tope = Math.max(500, ...s.dias.map((x) => x.consumido * 1.1), ...s.dias.map((x) => x.limite * 1.25));
+    const y = (v) => BASE - (v / tope) * (BASE - 14);
+    const COLOR = { ok: "var(--sage)", pasado: "var(--amber)", cheat: "var(--cheat)" };
+    const LETRA = ["D", "L", "M", "M", "J", "V", "S"];
+    let barras = "";
+    s.dias.forEach((x, i) => {
+      const cx = slot * i + slot / 2, x0 = cx - ancho / 2;
+      if (x.consumido > 0) {
+        const top = y(x.consumido), r = Math.min(4, BASE - top);
+        const d = `M${x0.toFixed(1)},${BASE} V${(top + r).toFixed(1)} Q${x0.toFixed(1)},${top.toFixed(1)} ${(x0 + r).toFixed(1)},${top.toFixed(1)} H${(x0 + ancho - r).toFixed(1)} Q${(x0 + ancho).toFixed(1)},${top.toFixed(1)} ${(x0 + ancho).toFixed(1)},${(top + r).toFixed(1)} V${BASE} Z`;
+        barras += x.estado === "hoy"
+          ? `<path d="${d}" fill="var(--surfaceRaised)" stroke="var(--textDim)" stroke-width="1.5" stroke-dasharray="3 3"></path>`
+          : `<path d="${d}" fill="${COLOR[x.estado]}"></path>`;
+        if (x.estado === "pasado") barras += `<text x="${cx.toFixed(1)}" y="${(top - 6).toFixed(1)}" text-anchor="middle" fill="var(--text)" font-size="10" font-weight="700">▲</text>`;
+        if (x.estado === "cheat") barras += `<text x="${cx.toFixed(1)}" y="${Math.max(9, top - 5).toFixed(1)}" text-anchor="middle" fill="var(--textDim)" font-size="9">cheat</text>`;
+      } else if (!x.esHoy) {
+        barras += `<text x="${cx.toFixed(1)}" y="${BASE - 4}" text-anchor="middle" fill="var(--textDim)" font-size="10">–</text>`;
+      }
+      const dia = new Date(x.fecha + "T00:00:00").getDay();
+      barras += `<text x="${cx.toFixed(1)}" y="${BASE + 16}" text-anchor="middle" fill="${x.esHoy ? "var(--text)" : "var(--textDim)"}" font-size="11" ${x.esHoy ? 'font-weight="700"' : ""}>${x.esHoy ? "Hoy" : LETRA[dia]}</text>`;
+      // Área tocable de toda la columna: más grande que la barra.
+      barras += `<rect x="${(slot * i).toFixed(1)}" y="0" width="${slot.toFixed(1)}" height="${H + 10}" fill="transparent" style="cursor:pointer;" onclick="selDiaSemana(${i})"><title>${esc(formatDate(x.fecha))}: ${kcal(x.consumido)} kcal</title></rect>`;
+    });
+    const lim = s.dias[6].limite;
+    const linea = `<line x1="0" y1="${y(lim).toFixed(1)}" x2="${W}" y2="${y(lim).toFixed(1)}" stroke="var(--textDim)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".8"></line>
+      <text x="0" y="${(y(lim) - 5).toFixed(1)}" fill="var(--textDim)" font-size="10">límite ${kcal(lim)}</text>`;
+
+    let detalle = "Tocá un día para ver sus números.";
+    if (semanaSel != null && s.dias[semanaSel]) {
+      const x = s.dias[semanaSel];
+      const nombre = formatDate(x.fecha);
+      if (!x.d) detalle = `${nombre}: sin comidas cargadas.`;
+      else {
+        const dif = x.consumido - x.limite;
+        const extra = x.estado === "cheat" ? "día cheat" : x.esHoy ? "en curso" : dif > 0 ? `te pasaste ${kcal(dif)}` : `quedaste ${kcal(-dif)} abajo`;
+        detalle = `<b style="color:var(--text);">${nombre}</b>: ${kcal(x.consumido)} kcal · límite ${kcal(x.limite)} · ${extra}`;
+      }
+    }
+
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;align-items:baseline;">
+        <div class="hero-label">Últimos 7 días</div>
+        <div class="xs dim">${formatDate(s.dias[0].fecha)} – hoy</div>
+      </div>
+      <div style="font-size:21px;font-weight:700;margin-top:8px;line-height:1.25;">${s.contables ? `${s.dentro} de ${s.contables} día${s.contables !== 1 ? "s" : ""} dentro del límite` : "Todavía no hay días completos"}</div>
+      <div class="xs dim" style="margin-top:4px;">Sin contar los días cheat ni hoy, que está en curso.</div>
+      <svg role="img" aria-label="Calorías de los últimos 7 días contra el límite" width="100%" viewBox="0 0 ${W} ${H + 12}" style="display:block;margin-top:16px;overflow:visible;font-family:-apple-system, Helvetica Neue, Arial, sans-serif;">
+        <line x1="0" y1="${BASE}" x2="${W}" y2="${BASE}" stroke="var(--line)" stroke-width="1"></line>
+        ${linea}${barras}
+      </svg>
+      <div class="xs dim" style="margin-top:8px;min-height:18px;">${detalle}</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:11px;color:var(--textDim);">
+        <span><span class="sq" style="background:var(--sage);"></span>Dentro del límite</span>
+        <span><span class="sq" style="background:var(--amber);"></span>▲ Te pasaste</span>
+        <span><span class="sq" style="background:var(--cheat);"></span>Cheat</span>
+        <span><span class="sq" style="border:1px dashed var(--textDim);box-sizing:border-box;"></span>Hoy, en curso</span>
+      </div>
+      <div class="grid3" style="margin-top:16px;gap:8px;">
+        <div class="tile"><div class="stat-mini">Promedio</div><div>${kcal(s.promedio)}</div><div class="xs dim">kcal por día</div></div>
+        <div class="tile"><div class="stat-mini">Proteína</div><div style="color:var(--protein);">${Math.round(s.proteina)} g</div><div class="xs dim">de ${c.proteinTarget} por día</div></div>
+        <div class="tile"><div class="stat-mini">${s.deficit >= 0 ? "Déficit" : "Superávit"}</div><div style="color:${s.deficit >= 0 ? "var(--sage)" : "var(--rust)"};">${kcal(Math.abs(s.deficit))}</div><div class="xs dim">kcal ≈ ${(Math.abs(s.deficit) / KCAL_PER_KG).toFixed(1).replace(".", ",")} kg</div></div>
+      </div>
+    </div>`;
+  }
+
+  // ---------- nube ----------
+  //
+  // Todo el estado viaja a netlify/functions/datos.js con un código al azar.
+  // Se guarda solo, unos segundos después de cada cambio. En otro celular,
+  // poniendo el código, se baja todo. Sin cuenta ni contraseña: quien tenga el
+  // código ve los datos (la persona lo eligió así).
+  const ALFABETO = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const CODIGO_RE = /^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/;
+  let nube = { codigo: null, guardado: null, estado: "nuevo" }; // estado: nuevo | guardando | ok | error
+  let nubeTimer = null;
+  let nubeMsg = null;             // {tipo, texto} en Ajustes
+  let nubeEncontrada = null;      // {codigo, guardado, datos} esperando confirmación
+  let nubeBuscando = false;
+  // Va directo a localStorage: si pasara por window.storage dispararía otro guardado.
+  function persistNube() { try { localStorage.setItem("deficit_nube", JSON.stringify({ codigo: nube.codigo, guardado: nube.guardado })); } catch (e) { console.error(e); } }
+  function cargarNube() {
+    try { const n = JSON.parse(localStorage.getItem("deficit_nube") || "null"); if (n && CODIGO_RE.test(n.codigo)) nube = { codigo: n.codigo, guardado: n.guardado || null, estado: n.guardado ? "ok" : "nuevo" }; } catch (e) { /* queda nueva */ }
+  }
+  function generarCodigo() {
+    const b = new Uint8Array(12);
+    crypto.getRandomValues(b);
+    const t = Array.from(b, (x) => ALFABETO[x % 32]).join("");
+    return `${t.slice(0, 4)}-${t.slice(4, 8)}-${t.slice(8)}`;
+  }
+  function asegurarCodigo() { if (!nube.codigo) { nube = { codigo: generarCodigo(), guardado: null, estado: "nuevo" }; persistNube(); } }
+  function fotoDelEstado() { return { app: "deficit", version: APP_VERSION, meals, dayMeta, goal, weighIns, frecuentes }; }
+
+  // Varios cambios seguidos (cargar una comida toca meals y dayMeta) se juntan
+  // en un solo envío.
+  function programarGuardado() {
+    if (!goal.onboarded) return;
+    clearTimeout(nubeTimer);
+    nubeTimer = setTimeout(guardarEnNube, 3000);
+  }
+  // Todo lo que se guarda pasa por window.storage.set (comidas, días, objetivo,
+  // pesajes, Lo de siempre): engancharse ahí cubre cualquier cambio, incluso
+  // los que se agreguen más adelante.
+  const setLocal = window.storage.set;
+  window.storage.set = async function (key, value) {
+    const r = await setLocal.call(window.storage, key, value);
+    programarGuardado();
+    return r;
+  };
+  // De a uno por vez: si un envío tardara más que la espera, el viejo podría
+  // llegar después del nuevo y pisarlo. Lo que cambie mientras tanto sale
+  // apenas termina el que está en camino.
+  let nubeEnCamino = false;
+  let nubePendiente = false;
+  async function guardarEnNube() {
+    if (!goal.onboarded) return;
+    if (nubeEnCamino) { nubePendiente = true; return; }
+    nubeEnCamino = true;
+    asegurarCodigo();
+    // Si en el camino cambia el código (recuperaste otro o borraste todo), la
+    // respuesta de este envío ya no habla del código actual.
+    const codigo = nube.codigo;
+    nube.estado = "guardando";
+    pintarEstadoNube();
+    try {
+      const r = await fetch("/.netlify/functions/datos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "guardar", codigo, datos: fotoDelEstado() }),
+      });
+      const obj = await r.json();
+      if (!r.ok) throw new Error(obj.error || "Error");
+      if (nube.codigo === codigo) { nube.guardado = obj.guardado; nube.estado = "ok"; persistNube(); }
+    } catch (e) {
+      console.error(e);
+      if (nube.codigo === codigo) nube.estado = "error";
+    }
+    nubeEnCamino = false;
+    pintarEstadoNube();
+    if (nubePendiente) { nubePendiente = false; guardarEnNube(); }
+  }
+  // Sin render(): en Ajustes podés estar pegando un código o escribiendo un
+  // peso, y redibujar te lo borraría.
+  function estadoNube() {
+    const texto = nube.estado === "guardando" ? "Guardando…"
+      : nube.estado === "error" ? "Sin conexión: se guarda cuando vuelva"
+      : nube.guardado ? `Guardado ${haceCuanto(nube.guardado)}` : "Se guarda con el próximo cambio";
+    return { texto, color: nube.estado === "error" ? "var(--amber)" : "var(--sage)" };
+  }
+  function pintarEstadoNube() {
+    const el = document.getElementById("nube-estado");
+    if (!el) return;
+    const e = estadoNube();
+    el.textContent = e.texto;
+    el.style.color = e.color;
+  }
+  // Si quedó algo sin subir (sin señal), se reintenta al volver la conexión o
+  // al volver a abrir la app.
+  window.addEventListener("online", () => { if (nube.estado === "error") guardarEnNube(); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && nube.estado === "error") guardarEnNube(); });
+
+  function haceCuanto(iso) {
+    const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (!(min >= 0)) return "";
+    if (min < 1) return "recién";
+    if (min < 60) return `hace ${min} minuto${min !== 1 ? "s" : ""}`;
+    const hs = Math.round(min / 60);
+    if (hs < 24) return `hace ${hs} hora${hs !== 1 ? "s" : ""}`;
+    return `el ${new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "long" })}`;
+  }
+
+  window.copiarCodigo = function () {
+    const listo = () => { nubeMsg = { tipo: "ok", texto: "Código copiado." }; render(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(nube.codigo).then(listo, () => { nubeMsg = { tipo: "error", texto: "No se pudo copiar: anotalo a mano." }; render(); });
+    else { nubeMsg = { tipo: "error", texto: "No se pudo copiar: anotalo a mano." }; render(); }
+  };
+  window.buscarEnNube = async function () {
+    const el = document.getElementById("nube-codigo");
+    const codigo = (el ? el.value : "").trim().toUpperCase().replace(/\s+/g, "");
+    nubeEncontrada = null;
+    if (!CODIGO_RE.test(codigo)) { nubeMsg = { tipo: "error", texto: "El código son tres grupos de 4, como 7Q4M-92KD-H3TP." }; render(); return; }
+    if (codigo === nube.codigo) { nubeMsg = { tipo: "error", texto: "Ese es el código de este celular." }; render(); return; }
+    nubeBuscando = true; nubeMsg = null;
+    render();
+    try {
+      const r = await fetch("/.netlify/functions/datos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion: "leer", codigo }) });
+      const obj = await r.json();
+      if (!r.ok) throw Object.assign(new Error(obj.error || "Error"), { codigo: obj.code });
+      if (!obj.datos || !Array.isArray(obj.datos.meals)) throw new Error("forma");
+      nubeEncontrada = { codigo, guardado: obj.guardado, datos: obj.datos };
+    } catch (e) {
+      console.error(e);
+      nubeMsg = { tipo: "error", texto: e.codigo === "codigo_desconocido" ? "No hay datos guardados con ese código. Revisalo." : e instanceof TypeError ? "No hay conexión. Probá de nuevo." : "No se pudo traer. Probá de nuevo en un rato." };
+    } finally {
+      nubeBuscando = false;
+      render();
+    }
+  };
+  window.cancelarNube = function () { nubeEncontrada = null; render(); };
+  window.usarDatosDeNube = async function () {
+    if (!nubeEncontrada) return;
+    const d = nubeEncontrada.datos;
+    // Primero el código: lo que se guarde desde ahora va a esa misma copia.
+    nube = { codigo: nubeEncontrada.codigo, guardado: nubeEncontrada.guardado, estado: "ok" };
+    persistNube();
+    meals = Array.isArray(d.meals) ? d.meals : [];
+    dayMeta = d.dayMeta && typeof d.dayMeta === "object" ? d.dayMeta : {};
+    goal = { ...DEFAULT_GOAL, ...(d.goal || {}) };
+    weighIns = Array.isArray(d.weighIns) ? d.weighIns : [];
+    frecuentes = Array.isArray(d.frecuentes) ? d.frecuentes : [];
+    await Promise.all([persistMeals(), persistDayMeta(), persistGoal(), persistWeighIns()]);
+    persistFrecuentes();
+    nubeEncontrada = null;
+    nubeMsg = { tipo: "ok", texto: `Listo: se recuperaron ${meals.length} comida${meals.length !== 1 ? "s" : ""}.` };
+    applyTheme();
+    render();
+  };
+
+  function nubeHTML() {
+    const e = estadoNube();
+    let h = `<div class="card" style="border-color:var(--sage);">
+      <div class="row gap10" style="align-items:center;">
+        <span class="nube-icono">${icon("nube", "var(--sage)", 20, 1.9)}</span>
+        <div>
+          <div class="title">Tus datos en la nube</div>
+          <div id="nube-estado" class="xs" style="color:${e.color};margin-top:2px;">${esc(e.texto)}</div>
+        </div>
+      </div>
+      <div class="small dim" style="line-height:1.45;margin-top:12px;">Cada comida, pesaje y ajuste se guarda solo. Si cambiás de celular o se borra el navegador, no perdés nada.</div>
+      <div class="hero-label" style="margin-top:16px;">Tu código</div>
+      <div class="row gap10" style="align-items:center;margin-top:6px;">
+        <div class="codigo">${esc(nube.codigo || "—")}</div>
+        <button class="btn-secondary" style="min-height:48px;" onclick="copiarCodigo()">Copiar</button>
+      </div>
+      <div class="xs dim" style="line-height:1.45;margin-top:8px;">Guardalo en un lugar seguro, por ejemplo mandátelo por WhatsApp. Con este código se pueden ver tus datos: no se lo pases a nadie.</div>
+      <div class="divider"></div>
+      <div class="small" style="font-weight:700;">¿Celular nuevo?</div>`;
+    h += recuperarHTML("Abrí la app en el celular nuevo, entrá acá y pegá el código del viejo. Se baja todo tu historial.");
+    return h + `</div>`;
+  }
+
+  // Pegar un código y bajar los datos: en Ajustes y en la bienvenida, para que
+  // en un celular nuevo no haya que completar "Contame sobre vos" primero.
+  function recuperarHTML(ayuda, secundario) {
+    let h = "";
+    if (nubeEncontrada) {
+      const nComidas = nubeEncontrada.datos.meals.length;
+      h += `<div class="veredicto" style="margin-top:10px;">Encontré datos guardados ${haceCuanto(nubeEncontrada.guardado)}: <b>${nComidas} comida${nComidas !== 1 ? "s" : ""}</b>. Usarlos reemplaza lo que hay en este celular.</div>
+        <div class="row gap10" style="margin-top:10px;">
+          <button class="btn-primary" style="flex:1;min-height:48px;" onclick="usarDatosDeNube()">Sí, usar esos datos</button>
+          <button class="btn-secondary" style="flex:1;min-height:48px;" onclick="cancelarNube()">Cancelar</button>
+        </div>`;
+    } else {
+      h += `<div class="xs dim" style="margin-top:4px;line-height:1.45;">${ayuda}</div>
+        <input id="nube-codigo" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="Pegá tu código" style="margin-top:10px;text-transform:uppercase;">
+        <button class="${secundario ? "btn-secondary" : "btn-primary"} big-btn" style="width:100%;margin-top:10px;" onclick="buscarEnNube()" ${nubeBuscando ? "disabled" : ""}>${nubeBuscando ? '<span class="spin">↻</span> Buscando…' : "Recuperar mis datos"}</button>`;
+    }
+    if (nubeMsg) h += `<div class="small" style="margin-top:10px;color:${nubeMsg.tipo === "error" ? "var(--rust)" : "var(--sage)"};">${esc(nubeMsg.texto)}</div>`;
+    return h;
   }
 
   // ---------- PANTALLA: HOY ----------
@@ -1596,7 +2331,13 @@ function todayISO() {
     const diasPesaje = primero && ultimo ? Math.max(1, dayDiff(primero.date, ultimo.date)) : 0;
     const ritmoSemanal = diasPesaje > 0 ? (bajado / diasPesaje) * 7 : 0;
 
-    let h = `<div class="screen">${topbarVolver("Progreso")}`;
+    let h = `<div class="screen">
+      <div class="topbar">
+        <div style="font-size:22px;font-weight:700;">Progreso</div>
+        <button class="icon-btn" onclick="setTab('ajustes')" aria-label="Ajustes">${icon("sliders", "var(--textDim)", 22)}</button>
+      </div>`;
+
+    h += semanaHTML(c);
 
     h += `<div class="card">
       <div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:16px;">
@@ -1693,12 +2434,14 @@ function todayISO() {
       </div>`;
     }
 
-    return h + `</div>`;
+    return h + pieVersion() + `</div>`;
   }
 
   // ---------- PANTALLA: AJUSTES ----------
   function screenAjustes(c) {
     let h = `<div class="screen">${topbarVolver("Ajustes", `<button class="btn-secondary" onclick="toggleTheme()">${goal.theme === "light" ? "Oscuro" : "Claro"}</button>`)}`;
+
+    h += nubeHTML();
 
     h += `<div class="card">
       <div class="title" style="margin-bottom:12px;">Objetivo</div>
@@ -1745,7 +2488,7 @@ function todayISO() {
 
     h += `<div class="card">
       <div class="title" style="margin-bottom:8px;">Copia de seguridad</div>
-      <div class="xs dim" style="margin-bottom:12px;">Tus datos viven solo en este navegador. Si cambiás de celular o borrás datos de Safari, se pierden. Descargá un respaldo cada tanto.</div>
+      <div class="xs dim" style="margin-bottom:12px;">Además de la nube, podés bajarte un archivo con todo y guardarlo donde quieras.</div>
       <div class="row gap10" style="flex-wrap:wrap;">
         <button class="btn-secondary" onclick="exportBackup()">Descargar respaldo</button>
         <button class="btn-secondary" onclick="triggerImport()">Restaurar respaldo</button>
@@ -1759,7 +2502,8 @@ function todayISO() {
       <div class="xs dim" style="margin-bottom:12px;">Borra todas tus comidas, pesajes, racha y objetivo, y te lleva de nuevo a la bienvenida. No se puede deshacer.</div>
       ${showResetConfirm
         ? `<div style="background:var(--surfaceRaised);border:1px solid var(--rust);border-radius:10px;padding:14px;">
-            <div style="font-weight:700;margin-bottom:10px;">¿Seguro que querés borrar todo?</div>
+            <div style="font-weight:700;margin-bottom:6px;">¿Seguro que querés borrar todo?</div>
+            ${nube.codigo ? `<div class="xs dim" style="margin-bottom:12px;line-height:1.45;">La copia en la nube no se borra: queda con el código <b style="color:var(--text);">${esc(nube.codigo)}</b>. Si te arrepentís, anotalo y recuperala desde acá.</div>` : ""}
             <div class="row gap10">
               <button class="btn-secondary" style="border-color:var(--rust);color:var(--rust);flex:1;" onclick="confirmResetAllData()">Sí, borrar todo</button>
               <button class="btn-secondary" style="flex:1;" onclick="cancelResetConfirm()">Cancelar</button>
@@ -1846,6 +2590,8 @@ function todayISO() {
       <button class="icon-btn" onclick="closeCapture()" aria-label="Cerrar">${icon("close", "var(--textDim)", 20)}</button>
     </div>
 
+    ${frecuentesHTML()}
+
     <textarea id="dictation-textarea" rows="4" placeholder="Ej: para el almuerzo comí una milanesa con puré y una manzana de postre… (y si tenés: hoy Google Fit me dijo que gasté 2400 calorías)" style="resize:vertical;margin-bottom:12px;">${esc(dictationDraft)}</textarea>
     <input id="photo-file-input" type="file" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoFile(this)">`;
 
@@ -1875,7 +2621,8 @@ function todayISO() {
   function renderApp() {
     const c = computeCtx();
     let html = "";
-    if (activeTab === "historial") html += screenHistorial(c);
+    if (activeTab === "dieta") html += screenDieta(c);
+    else if (activeTab === "historial") html += screenHistorial(c);
     else if (activeTab === "progreso") html += screenProgreso(c);
     else if (activeTab === "ajustes") html += screenAjustes(c);
     else html += screenHoy(c);
