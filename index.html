@@ -185,7 +185,8 @@
   .p-heroe { position: relative; background: var(--surface); border-radius: 28px; padding: 16px 18px; box-shadow: var(--heroSombra); }
   .p-etiqueta { font-size: 15px; font-weight: 700; text-align: center; text-wrap: balance; padding: 0 58px; }
   .p-num { font-weight: 800; font-size: 72px; line-height: .95; letter-spacing: -2.5px; }
-  .p-num.chico { font-size: 62px; }
+  .p-num { white-space: nowrap; }
+  .p-num-t { display: inline-block; }
   .p-mas { font-size: .55em; vertical-align: .42em; margin-right: 2px; }
   .p-linea { font-size: 14px; font-weight: 600; text-align: center; }
   .p-botones { display: flex; justify-content: center; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 8px; }
@@ -2350,6 +2351,7 @@ function todayISO() {
         const tmp = document.createElement("div");
         tmp.innerHTML = heroeHTML(c, estadoHoy(c, total), true);
         viejo.replaceWith(tmp.firstElementChild);
+        ajustarNumeros();
       }
     }
   };
@@ -2457,9 +2459,10 @@ function todayISO() {
     return e;
   }
   function anilloHeroeHTML(e) {
+    const diametro = 2 * (e.radio - 9);
     return `<svg role="img" aria-label="${esc(e.aria)}" width="100%" height="100%" viewBox="0 0 270 270" style="overflow:visible;display:block">${anilloSVG({ size: 270, r: e.radio, grosor: 18, est: e.est, ticks: true })}</svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-          <div id="heroe-num" class="p-num${e.mas ? " chico" : ""}">${e.mas ? '<span class="p-mas">+</span>' : ""}${e.num}</div>
+          <div id="heroe-num" class="p-num" data-d="${diametro.toFixed(1)}"><span class="p-num-t">${e.mas ? '<span class="p-mas">+</span>' : ""}${e.num}</span></div>
           <div style="font-size:15px;font-weight:700;margin-top:2px">${e.unidad}</div>
         </div>`;
   }
@@ -3709,6 +3712,23 @@ function todayISO() {
     else if (editandoInicio) cerrarEditarInicio();
   });
 
+  // El número grande se achica hasta entrar en el círculo: se mide el texto
+  // contra el diámetro interior del anillo, con margen para la curva.
+  function ajustarNumeros() {
+    document.querySelectorAll(".p-num[data-d]").forEach(function (el) {
+      const t = el.querySelector(".p-num-t");
+      if (!t) return;
+      const limite = Number(el.getAttribute("data-d")) * 0.84;
+      el.style.fontSize = "72px";
+      const ancho = t.getBoundingClientRect().width;
+      if (ancho <= limite) return;
+      let fs = Math.floor((72 * limite) / ancho);
+      el.style.fontSize = fs + "px";
+      // Las cifras y el punto no miden de forma proporcional: se ajusta de a 2 px.
+      while (fs > 28 && t.getBoundingClientRect().width > limite) { fs -= 2; el.style.fontSize = fs + "px"; }
+    });
+  }
+
   function renderApp() {
     const c = computeCtx();
     let html = "";
@@ -3729,6 +3749,7 @@ function todayISO() {
     const root = document.getElementById("root");
     root.classList.toggle("anim", animarPantalla);
     root.innerHTML = html;
+    ajustarNumeros();
     animarPantalla = false;
     if (editandoInicio && !showCapture && !comidaAbierta && !showIdeas && !gastoFecha) activarArrastre();
   }
