@@ -1,7 +1,7 @@
 # Déficit Tracker — Despliegue en Netlify
 
 ## Qué incluye esta carpeta
-- `index.html` — la app de déficit (frontend), sin dependencias externas.
+- `index.html` — la app de déficit (frontend). No necesita nada externo, salvo la tipografía Outfit de Google Fonts.
 - `nutrientes.js` — catálogo de nutrientes y referencias diarias que usan las dos apps. Tiene que viajar junto a `index.html`.
 - `mama/` — la versión "Nutrientes": solo calorías, macros, vitaminas y minerales (ver abajo).
 - `netlify/functions/analyze.js` — función serverless que llama a la API de Anthropic protegiendo tu clave. La comparten las dos apps.
