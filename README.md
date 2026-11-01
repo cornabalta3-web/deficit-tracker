@@ -1,7 +1,7 @@
 # Déficit Tracker — Despliegue en Netlify
 
 ## Qué incluye esta carpeta
-- `index.html` — la app de déficit (frontend), sin dependencias externas.
+- `index.html` — la app de déficit (frontend). No necesita nada externo, salvo la tipografía Outfit de Google Fonts.
 - `nutrientes.js` — catálogo de nutrientes y referencias diarias que usan las dos apps. Tiene que viajar junto a `index.html`.
 - `mama/` — la versión "Nutrientes": solo calorías, macros, vitaminas y minerales (ver abajo).
 - `netlify/functions/analyze.js` — función serverless que llama a la API de Anthropic protegiendo tu clave. La comparten las dos apps.
@@ -9,6 +9,23 @@
 - `package.json` — la única dependencia, `@netlify/blobs`. Netlify la instala sola al publicar; no hay paso de build.
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
+
+## Novedades de la v19 (app de déficit): Pulso
+
+Cambió la identidad: un anillo alrededor de tu número, claro de día y oscuro de noche. El color quiere decir lo mismo en toda la app: verde vas bien, amarillo te pasaste de tu número pero seguís en déficit, rojo comiste más de lo que gastaste, celeste te falta.
+
+- **Tu número en el centro.** El anillo se agranda cuando sube tu gasto. "¿De dónde sale?" muestra la cuenta: gastás − déficit = tu número.
+- **Tu gasto de hoy.** Una barra que arranca en tu gasto base y sube con cada ejercicio. Si tu reloj dice otro total, la arrastrás hasta ese número o tocás el número y lo escribís. La diferencia queda como "a mano". Los días pasados se corrigen desde Progreso, sin entrar a Historial.
+- **El + con dos pestañas.** Comida: texto, dictado, foto, la comida (desayuno, almuerzo, merienda, cena) y lo de siempre. Ejercicio: lo de siempre, o actividad, minutos e intensidad, con las kcal estimadas según tu peso. Si ya marcaste tu gasto a mano, la app pregunta si tu reloj ya contó ese ejercicio, para no sumarlo dos veces.
+- **Tus comidas en línea de tiempo.** Cada comida tiene su anillito y una etiqueta corta ("Mucho sodio", "Buen calcio"). Las que faltan van punteadas, con lo que te queda para ellas.
+- **Tus nutrientes.** La sección nueva reemplaza a Dieta en la barra: el promedio de 7 días, 30 días o todo, con lo que te falta, lo que te sobra y el plan de dieta (lo que antes era Dieta).
+- **Tu inicio a tu gusto.** Cada parte de Hoy se abre y se cierra con su flecha. En "Editar tu inicio" elegís el orden, ocultás lo que no usás y decidís cómo arranca cada parte: fija abierta, fija cerrada o como la dejaste.
+- **Tema según la hora.** Claro de 7 a 20 y oscuro el resto. En Ajustes se puede fijar uno.
+- **Logo nuevo** en la app de déficit (el anillo). La app de la mamá conserva el suyo.
+
+Lo que no cambió: el servidor (`analyze.js`, `datos.js`), la nube con código y los datos guardados. Los datos de antes siguen funcionando; lo nuevo se guarda dentro de cada día (`ejercicios`, `ajusteGasto`) y dentro de Ajustes (`tema`, `inicio`, `ejercicios`).
+
+**Sobre las estimaciones de ejercicio:** las kcal salen de METs (cuánto más que en reposo gasta cada actividad) multiplicados por tu peso y el tiempo. Los de caminata a 3,5 mph, fútbol recreativo y bici recreativa salen del Compendio de Actividades Físicas; los demás son estimaciones a revisar. Las cifras de ejercicio son orientativas: si tu reloj tiene un número, usalo escribiéndolo en "¿Tu reloj dice otro número?".
 
 ## Novedades de la v18 (app de déficit)
 

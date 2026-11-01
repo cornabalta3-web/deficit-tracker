@@ -1,17 +1,32 @@
 {
   "name": "Déficit Tracker",
   "short_name": "Déficit",
-  "description": "Seguimiento de déficit calórico con análisis de comidas por foto o dictado.",
+  "description": "Seguimiento de déficit calórico: tu número del día, tus comidas y tus nutrientes, con foto o dictado.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#14181C",
-  "theme_color": "#14181C",
+  "background_color": "#0A1E3D",
+  "theme_color": "#0A1E3D",
   "lang": "es-AR",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/pulso-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pulso-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/pulso-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
