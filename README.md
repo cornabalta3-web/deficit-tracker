@@ -10,6 +10,16 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v20 (app de déficit)
+
+- **Tu meta, a la vista.** "Tu meta" aparece en Hoy de entrada: kilos bajados, cuánto te falta y el ritmo de los últimos 7 días cerrados. Dice si llegás a tiempo para tu fecha, o cuántos kilos tenés que bajar por semana para llegar.
+- **Felicitaciones al abrir el día.** Una pantalla por día, con un toque para seguir, que mira lo que pasó hasta ayer:
+  - Si hay un hito de kilos nuevo (1, 2, 3, 5, 10 kg…), te felicita por eso. Los kilos son los de tus pesajes o, si no cargaste pesajes, los estimados con el déficit acumulado (7.700 kcal = 1 kg).
+  - Si no hay hito y ayer cumpliste tu número, muestra el déficit de ayer y tu racha.
+  - Si no cumpliste, muestra un mensaje neutro, sin festejo ni castigo, con la semana entera.
+- Los hitos ya festejados se guardan en `goal.premios`, para no repetirlos.
+- Si ya tenías guardada la lista de Editar tu inicio, "Tu meta" vuelve a verse una vez. Si la querés oculta, volvé a ocultarla desde ahí.
+
 ## Novedades de la v19 (app de déficit): Pulso
 
 Cambió la identidad: un anillo alrededor de tu número, claro de día y oscuro de noche. El color quiere decir lo mismo en toda la app: verde vas bien, amarillo te pasaste de tu número pero seguís en déficit, rojo comiste más de lo que gastaste, celeste te falta.

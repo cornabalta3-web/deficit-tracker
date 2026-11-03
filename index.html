@@ -185,7 +185,8 @@
   .p-heroe { position: relative; background: var(--surface); border-radius: 28px; padding: 16px 18px; box-shadow: var(--heroSombra); }
   .p-etiqueta { font-size: 15px; font-weight: 700; text-align: center; text-wrap: balance; padding: 0 58px; }
   .p-num { font-weight: 800; font-size: 72px; line-height: .95; letter-spacing: -2.5px; }
-  .p-num.chico { font-size: 62px; }
+  .p-num { white-space: nowrap; }
+  .p-num-t { display: inline-block; }
   .p-mas { font-size: .55em; vertical-align: .42em; margin-right: 2px; }
   .p-linea { font-size: 14px; font-weight: 600; text-align: center; }
   .p-botones { display: flex; justify-content: center; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 8px; }
@@ -273,6 +274,29 @@
   .p-mini-dia { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 6px; border-radius: 14px; color: var(--text); min-height: 44px; }
   .p-mini-dia[aria-pressed="true"] { background: var(--track); }
   .p-fila-n:last-child { border-bottom: none !important; }
+  /* ---------- v20: "Tu meta" y felicitaciones al abrir el día ---------- */
+  .premio { position: fixed; inset: 0; z-index: 95; overflow-y: auto; background: radial-gradient(ellipse at 50% 0%, var(--bienSuave), transparent 62%), var(--bg); padding: calc(28px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); }
+  .premio-cuerpo { max-width: 620px; min-height: 100%; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; }
+  .premio-etiqueta { align-self: flex-start; padding: 6px 12px; border-radius: 999px; background: var(--surface); color: var(--textDim); font-size: 13px; font-weight: 700; }
+  .premio-titulo { font-size: 34px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.05; text-wrap: balance; }
+  .premio-sub { font-size: 18px; font-weight: 600; margin-top: -4px; }
+  .premio-texto { font-size: 15px; line-height: 1.45; text-align: center; color: var(--textDim); }
+  .premio-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .premio-nota { font-size: 12px; line-height: 1.45; text-align: center; color: var(--textDim); }
+  .premio-seguir { margin-top: auto; min-height: 52px; border-radius: 999px; background: var(--acento); color: var(--acentoInk); font-size: 16px; font-weight: 800; box-shadow: var(--acentoSombra); }
+  .premio-aro { position: relative; width: 240px; max-width: 100%; aspect-ratio: 1; margin: 0 auto; }
+  .premio-aro svg { width: 100%; height: 100%; }
+  .premio-aro-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .premio-num { font-size: 60px; font-weight: 800; letter-spacing: -2px; line-height: .95; }
+  .premio-unidad { font-size: 15px; font-weight: 700; margin-top: 6px; }
+  .premio-semana { background: var(--surface); border-radius: 24px; padding: 16px; box-shadow: var(--panelSombra); display: flex; flex-direction: column; gap: 14px; }
+  .premio-semana-titulo { font-size: 15px; font-weight: 800; }
+  .premio-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); justify-items: center; gap: 4px; }
+  .premio-dia { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .premio-punto { width: 28px; height: 28px; border-radius: 50%; display: block; }
+  .premio-letra { font-size: 12px; font-weight: 600; color: var(--textDim); }
+  .premio-cierre { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .premio-cierre-t { font-size: 24px; font-weight: 800; letter-spacing: -0.4px; }
 </style>
 <!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
 <script src="nutrientes.js"></script>
@@ -302,7 +326,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v19-html · Pulso: anillo, gasto en Hoy, ejercicio, nutrientes e inicio a tu gusto";
+  const APP_VERSION = "v20-html · meta a la vista y felicitaciones al abrir el día";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -612,6 +636,7 @@ function todayISO() {
       cargarNube();
       loading = false;
       applyTheme();
+      prepararPremio();
       render();
       // Quien ya usaba la app antes de la v17 sube su copia la primera vez.
       if (goal.onboarded) {
@@ -2350,6 +2375,7 @@ function todayISO() {
         const tmp = document.createElement("div");
         tmp.innerHTML = heroeHTML(c, estadoHoy(c, total), true);
         viejo.replaceWith(tmp.firstElementChild);
+        ajustarNumeros();
       }
     }
   };
@@ -2457,9 +2483,10 @@ function todayISO() {
     return e;
   }
   function anilloHeroeHTML(e) {
+    const diametro = 2 * (e.radio - 9);
     return `<svg role="img" aria-label="${esc(e.aria)}" width="100%" height="100%" viewBox="0 0 270 270" style="overflow:visible;display:block">${anilloSVG({ size: 270, r: e.radio, grosor: 18, est: e.est, ticks: true })}</svg>
         <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
-          <div id="heroe-num" class="p-num${e.mas ? " chico" : ""}">${e.mas ? '<span class="p-mas">+</span>' : ""}${e.num}</div>
+          <div id="heroe-num" class="p-num" data-d="${diametro.toFixed(1)}"><span class="p-num-t">${e.mas ? '<span class="p-mas">+</span>' : ""}${e.num}</span></div>
           <div style="font-size:15px;font-weight:700;margin-top:2px">${e.unidad}</div>
         </div>`;
   }
@@ -2509,15 +2536,18 @@ function todayISO() {
     { id: "comidas", nombre: "Tus comidas", icono: "cubiertos" },
     { id: "nutrientes", nombre: "Tus nutrientes", icono: "manzana" },
     { id: "semana", nombre: "Tu semana", icono: "pulso" },
-    { id: "objetivo", nombre: "Tu objetivo", icono: "bandera" },
+    { id: "objetivo", nombre: "Tu meta", icono: "bandera" },
   ];
-  const OCULTAS_DE_ENTRADA = ["semana", "objetivo"];
+  // v20: "Tu meta" se ve de entrada. Lo guardado antes (v < 2) se corrige una
+  // vez; desde el próximo cambio en Editar tu inicio queda con v 2.
+  const OCULTAS_DE_ENTRADA = ["semana"];
   function configInicio() {
     const g = goal.inicio || {};
     const ids = SECCIONES.map((s) => s.id);
     const orden = Array.isArray(g.orden) ? g.orden.filter((id, i, a) => ids.includes(id) && a.indexOf(id) === i) : [];
     ids.forEach((id) => { if (!orden.includes(id)) orden.push(id); });
-    const ocultas = (Array.isArray(g.ocultas) ? g.ocultas : OCULTAS_DE_ENTRADA).filter((id) => ids.includes(id) && id !== "numero");
+    let ocultas = (Array.isArray(g.ocultas) ? g.ocultas : OCULTAS_DE_ENTRADA).filter((id) => ids.includes(id) && id !== "numero");
+    if (!(g.v >= 2)) ocultas = ocultas.filter((id) => id !== "objetivo");
     return { orden, ocultas, arranque: g.arranque || {}, abiertas: g.abiertas || {} };
   }
   // abierta | cerrada (fijas: así arranca siempre) o recordar (como la dejaste).
@@ -2536,7 +2566,7 @@ function todayISO() {
     return abiertasSesion[id] !== false;
   }
   function guardarInicio(cambios) {
-    goal = { ...goal, inicio: { ...(goal.inicio || {}), ...cambios } };
+    goal = { ...goal, inicio: { ...(goal.inicio || {}), v: 2, ...cambios } };
     persistGoal();
   }
   window.plegar = function (id) {
@@ -2860,6 +2890,50 @@ function todayISO() {
     return h + `</div>`;
   }
 
+  // ---------- "Tu meta" en Hoy (v20) ----------
+  //
+  // Los kilos son los de tu déficit acumulado (o tu peso, si cargaste pesajes).
+  // El ritmo sale de los últimos 7 días cerrados: con eso se dice si llegás a
+  // tiempo para tu fecha, o cuánto tenés que bajar por semana para llegar.
+  function ritmoDeLaSemana(c) {
+    const ult = c.settled.slice(0, 7);
+    if (!ult.length) return null;
+    const prom = ult.reduce((s, d) => s + d.net, 0) / ult.length;
+    return (prom * 7) / KCAL_PER_KG;
+  }
+  function metaHoyHTML(c, abierta) {
+    const kg = Math.max(0, c.kgLost);
+    const totalKg = Math.max(0, goal.currentWeight - goal.goalWeight);
+    const faltaKg = Math.max(0, totalKg - kg);
+    const pct = totalKg > 0 ? Math.min(100, (kg / totalKg) * 100) : 0;
+    const ritmo = ritmoDeLaSemana(c);
+    const necesario = c.daysLeft > 0 ? faltaKg / (c.daysLeft / 7) : 0;
+    const k1 = (v) => Math.abs(v).toFixed(1).replace(".", ",");
+    let lectura;
+    if (faltaKg <= 0) lectura = "¡Llegaste a tu meta!";
+    else if (ritmo == null) lectura = "Cuando cierres algunos días, acá ves si llegás a tiempo para tu fecha.";
+    else if (ritmo >= necesario) lectura = "Vas bien: a este ritmo llegás a tiempo para tu fecha.";
+    else lectura = `Para llegar a tiempo necesitás bajar ${k1(necesario)} kg por semana.`;
+    const cab = cabecera("objetivo", "bandera", "Tu meta", abierta ? "" : `${k1(kg)} de ${totalKg.toFixed(0)} kg`, abierta);
+    let h = `<div class="p-tarjeta">${cab}`;
+    if (abierta) {
+      h += `<div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span style="font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1">${k1(kg)}</span>
+            <span style="font-size:15px;font-weight:600;color:var(--textDim)">de ${totalKg.toFixed(0)} kg</span>
+            <span style="margin-left:auto;font-size:15px;font-weight:800;color:var(--bienTexto)">${Math.round(pct)} %</span>
+          </div>
+          <div class="p-barra" style="color:var(--bien)"><i class="llena" style="width:${pct.toFixed(1)}%"></i></div>
+          <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px">
+            <span>${faltaKg > 0 ? `Te faltan <b>${k1(faltaKg)} kg</b>` : `<b style="color:var(--bienTexto)">Meta cumplida</b>`}</span>
+            <span style="color:var(--textDim)">${ritmo == null ? "Sin ritmo todavía" : ritmo < 0 ? `Ritmo: subiste ${k1(ritmo)} kg por semana` : `Ritmo ${k1(ritmo)} kg por semana`}</span>
+          </div>
+          <div style="font-size:13px;line-height:1.45;color:var(--textDim);background:var(--bg);border-radius:14px;padding:10px 12px">${lectura}</div>
+        </div>`;
+    }
+    return h + `</div>`;
+  }
+
   // ---------- PANTALLA: HOY ----------
   function screenHoy(c) {
     const e = estadoHoy(c);
@@ -2923,7 +2997,7 @@ function todayISO() {
       else if (id === "comidas") h += comidasHTML(c, e, ab);
       else if (id === "nutrientes") h += nutrientesHoyHTML(c, ab);
       else if (id === "semana") h += semanaHoyHTML(c, ab);
-      else if (id === "objetivo") h += objetivoHTML(c, ab, false);
+      else if (id === "objetivo") h += metaHoyHTML(c, ab);
     });
     h += `<button class="p-editar-inicio" onclick="abrirEditarInicio()">${icon("pencil", "var(--text)", 16)}Editar tu inicio</button>`;
     return h + pieVersion() + `</div>`;
@@ -3701,6 +3775,7 @@ function todayISO() {
   // Escape cierra la hoja que esté arriba.
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
+    if (premioActual) { window.cerrarPremio(); return; }
     if (confirmarEj) { confirmarEj = null; render(); }
     else if (showCapture) closeCapture();
     else if (comidaAbierta) cerrarComida();
@@ -3708,6 +3783,132 @@ function todayISO() {
     else if (gastoFecha) cerrarGasto();
     else if (editandoInicio) cerrarEditarInicio();
   });
+
+  // El número grande se achica hasta entrar en el círculo: se mide el texto
+  // contra el diámetro interior del anillo, con margen para la curva.
+  function ajustarNumeros() {
+    document.querySelectorAll(".p-num[data-d]").forEach(function (el) {
+      const t = el.querySelector(".p-num-t");
+      if (!t) return;
+      const limite = Number(el.getAttribute("data-d")) * 0.84;
+      el.style.fontSize = "72px";
+      const ancho = t.getBoundingClientRect().width;
+      if (ancho <= limite) return;
+      let fs = Math.floor((72 * limite) / ancho);
+      el.style.fontSize = fs + "px";
+      // Las cifras y el punto no miden de forma proporcional: se ajusta de a 2 px.
+      while (fs > 28 && t.getBoundingClientRect().width > limite) { fs -= 2; el.style.fontSize = fs + "px"; }
+    });
+  }
+
+  // ---------- felicitaciones al abrir el día (v20) ----------
+  //
+  // Mira lo que pasó hasta ayer, nunca hoy. Prioridad: 1) un hito de kilos nuevo
+  // (1, 2, 3, 5, 10 kg...); 2) si ayer cumpliste tu número, el déficit de ayer;
+  // 3) si no, un mensaje neutro, sin festejo y sin castigo. Aparece una vez por
+  // día y guarda el último hito festejado, para no repetirlo.
+  const HITOS_KG = [1, 2, 3, 5, 10, 15, 20, 30];
+  let premioActual = null;
+  function kgBajados(c) {
+    const ws = c.wSorted;
+    return ws.length >= 2 ? ws[0].weight - ws[ws.length - 1].weight : c.kgLost;
+  }
+  function calcularPremio(c) {
+    const pr = goal.premios || {};
+    if (!goal.onboarded || pr.ultimoDia === c.todayStr) return null;
+    const kg = kgBajados(c);
+    const hito = HITOS_KG.filter((h) => kg >= h && h > (pr.hitoKg || 0)).pop();
+    const pesajes = c.wSorted.length >= 2;
+    if (hito) return { tipo: "kilos", hito, kg, pesajes, streak: c.streak };
+    const ayer = c.dayStats.find((d) => d.date === addDaysISO(c.todayStr, -1)) || null;
+    if (!ayer || !ayer.meals.length || ayer.cheat) return null;
+    const limite = Math.max(0, ayer.gasto - metaDiaria(c));
+    return { tipo: ayer.consumed <= limite ? "deficit" : "neutral", ayer, limite, streak: c.streak };
+  }
+  let diaPremio = null; // el día para el que ya se miró el premio
+  function prepararPremio() {
+    try { premioActual = calcularPremio(computeCtx()); } catch (e) { console.error(e); premioActual = null; }
+    diaPremio = todayISO();
+  }
+  // Si la app quedó abierta de un día para el otro, el premio se mira al volver a
+  // la pantalla. Antes solo se miraba al recargar la página.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || loading || diaPremio === todayISO()) return;
+    const antes = premioActual;
+    prepararPremio();
+    if (antes || premioActual) render();
+  });
+  window.cerrarPremio = function () {
+    const p = premioActual;
+    if (!p) return;
+    const pr = goal.premios || {};
+    goal = { ...goal, premios: { ...pr, ultimoDia: todayISO(), hitoKg: p.tipo === "kilos" ? p.hito : (pr.hitoKg || 0) } };
+    persistGoal();
+    premioActual = null;
+    render();
+  };
+  function aroPremio(est, num, unidad, aria) {
+    return `<div class="premio-aro"><svg role="img" aria-label="${esc(aria)}" width="240" height="240" viewBox="0 0 240 240">${anilloSVG({ size: 240, r: 92, grosor: 18, est, ticks: true })}</svg><div class="premio-aro-centro"><div class="premio-num" style='font-size:${String(num).length <= 3 ? 60 : String(num).length === 4 ? 50 : 42}px'>${num}</div><div class="premio-unidad">${unidad}</div></div></div>`;
+  }
+  function premioChip(txt) { return `<span class="p-parte">${txt}</span>`; }
+  // Los siete días hasta ayer, cada uno con su estado: el mismo criterio de la semana.
+  function dotsSemana(c) {
+    const meta = metaDiaria(c);
+    const celdas = [];
+    for (let i = 7; i >= 1; i--) {
+      const fecha = addDaysISO(c.todayStr, -i);
+      const d = c.dayStats.find((x) => x.date === fecha);
+      let estado = "vacio";
+      if (d && d.cheat) estado = "cheat";
+      else if (d) {
+        const lim = Math.max(0, d.gasto - meta);
+        estado = d.consumed <= lim ? "bien" : d.consumed <= d.gasto ? "casi" : "demas";
+      }
+      celdas.push({ fecha, estado });
+    }
+    const conDatos = celdas.filter((x) => x.estado === "bien" || x.estado === "casi" || x.estado === "demas");
+    const bien = celdas.filter((x) => x.estado === "bien").length;
+    const color = { bien: "var(--bien)", casi: "var(--ojo)", demas: "var(--rojo)", cheat: "transparent", vacio: "var(--track)" };
+    const letra = (f) => ["D", "L", "M", "M", "J", "V", "S"][new Date(f + "T00:00:00").getDay()];
+    const titulo = conDatos.length ? `Esta semana: ${bien} de ${conDatos.length} días en verde` : "Esta semana todavía no hay días cerrados";
+    return `<div class="premio-semana"><div class="premio-semana-titulo">${titulo}</div><div class="premio-dias">${celdas.map((x, i) => `<div class="premio-dia"><span class="premio-punto" style="background:${color[x.estado]};${x.estado === "cheat" ? "box-shadow:inset 0 0 0 2px var(--cheat);" : ""}${i === celdas.length - 1 ? "outline:2px solid var(--text);outline-offset:2px;" : ""}"></span><span class="premio-letra">${letra(x.fecha)}</span></div>`).join("")}</div></div>`;
+  }
+  function premioHTML(c, p) {
+    const totalKg = Math.max(0, goal.currentWeight - goal.goalWeight);
+    const k1 = (v) => Math.abs(v).toFixed(1).replace(".", ",");
+    const dias = (n) => `${n} día${n !== 1 ? "s" : ""} seguido${n !== 1 ? "s" : ""} en verde`;
+    let etiqueta = "Al abrir el día", titulo = "¡Felicitaciones!", sub = "", medio = "";
+    if (p.tipo === "kilos") {
+      const pct = totalKg > 0 ? Math.min(1, p.kg / totalKg) : 0;
+      sub = p.hito === 1 ? "Bajaste tu primer kilo." : `Ya bajaste ${p.hito} kilos.`;
+      medio = `${aroPremio({ tipo: "bien", pct }, k1(p.kg), "kg bajados", `Bajaste ${k1(p.kg)} kilos, el ${Math.round(pct * 100)} % de tu meta`)}
+        <div class="premio-texto">De los ${totalKg.toFixed(0)} kg que te propusiste. Te faltan ${k1(Math.max(0, totalKg - p.kg))}.</div>
+        <div class="premio-chips">${p.streak > 0 ? premioChip(dias(p.streak)) : ""}</div>
+        <div class="premio-nota">${p.pesajes ? "Kilos según tus pesajes." : "Los kilos son estimados: 1 kg = 7.700 kcal de déficit acumulado. Con pesajes, usamos tu peso real."}</div>`;
+    } else if (p.tipo === "deficit") {
+      etiqueta = "Ayer";
+      sub = "Ayer cumpliste tu número.";
+      medio = `${aroPremio({ tipo: "bien", pct: 1 }, kcal(p.ayer.net), "kcal de déficit", `Déficit de ayer: ${kcal(p.ayer.net)} kcal`)}
+        <div class="premio-texto">Gastaste ${kcal(p.ayer.gasto)} y comiste ${kcal(p.ayer.consumed)}. Tu número era ${kcal(p.limite)}.</div>
+        <div class="premio-chips">${premioChip(`${kcal(p.limite - p.ayer.consumed)} kcal de margen`)}${p.streak > 0 ? premioChip(dias(p.streak)) : ""}</div>`;
+    } else {
+      const sobre = p.ayer.consumed > p.ayer.gasto;
+      etiqueta = "Ayer";
+      titulo = sobre ? "Ayer comiste de más." : "Ayer te pasaste de tu número.";
+      sub = sobre ? `${kcal(p.ayer.consumed - p.ayer.gasto)} kcal por encima de lo que gastaste.` : `Igual seguiste en déficit por ${kcal(p.ayer.gasto - p.ayer.consumed)} kcal.`;
+      medio = `${dotsSemana(c)}
+        <div class="premio-cierre">${icon("sun", "var(--bienTexto)", 26, 2)}<div class="premio-cierre-t">Hoy arrancás de cero.</div><div class="premio-texto">Tu número sigue siendo ${kcal(p.limite)}, y lo que cuenta es la semana entera.</div></div>`;
+    }
+    return `<div class="premio" role="dialog" aria-modal="true" aria-label="${esc(titulo)}">
+      <div class="premio-cuerpo">
+        <span class="premio-etiqueta">${etiqueta}</span>
+        <div class="premio-titulo">${titulo}</div>
+        <div class="premio-sub">${sub}</div>
+        ${medio}
+        <button class="premio-seguir" onclick="cerrarPremio()">Seguir</button>
+      </div>
+    </div>`;
+  }
 
   function renderApp() {
     const c = computeCtx();
@@ -3725,10 +3926,12 @@ function todayISO() {
     else if (gastoFecha) html += sheetGasto(c);
     else if (editandoInicio) html += sheetEditarInicio();
     if (confirmarEj) html += sheetConfirmarEjercicio();
+    if (premioActual) html += premioHTML(c, premioActual);
 
     const root = document.getElementById("root");
     root.classList.toggle("anim", animarPantalla);
     root.innerHTML = html;
+    ajustarNumeros();
     animarPantalla = false;
     if (editandoInicio && !showCapture && !comidaAbierta && !showIdeas && !gastoFecha) activarArrastre();
   }
