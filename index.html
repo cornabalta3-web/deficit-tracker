@@ -3825,9 +3825,19 @@ function todayISO() {
     const limite = Math.max(0, ayer.gasto - metaDiaria(c));
     return { tipo: ayer.consumed <= limite ? "deficit" : "neutral", ayer, limite, streak: c.streak };
   }
+  let diaPremio = null; // el día para el que ya se miró el premio
   function prepararPremio() {
     try { premioActual = calcularPremio(computeCtx()); } catch (e) { console.error(e); premioActual = null; }
+    diaPremio = todayISO();
   }
+  // Si la app quedó abierta de un día para el otro, el premio se mira al volver a
+  // la pantalla. Antes solo se miraba al recargar la página.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || loading || diaPremio === todayISO()) return;
+    const antes = premioActual;
+    prepararPremio();
+    if (antes || premioActual) render();
+  });
   window.cerrarPremio = function () {
     const p = premioActual;
     if (!p) return;
