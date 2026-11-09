@@ -326,7 +326,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v20-html · meta a la vista y felicitaciones al abrir el día";
+  const APP_VERSION = "v21-html · la IA pregunta, gramos opcionales y aprende de tus correcciones";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -342,6 +342,8 @@
   // que guardamos lo tipeado acá antes de redibujar. Sin esto, adjuntar una foto
   // borraba el dictado a medio escribir.
   let dictationDraft = "";
+  let gramosDraft = "";            // peso opcional de la porción, si la pesaste
+  let respuestas = {};             // índice de pregunta de la IA → opción elegida
   let calibrationDismissed = null; // gasto base sugerido que ya postergaste
   let onboardError = "";           // errores de validación en la bienvenida
   let ajustesMsg = null;           // {tipo: "error"|"ok", texto} al recalcular
@@ -947,7 +949,9 @@ function todayISO() {
   window.removePhoto = function () { photo = null; render(); };
 
   // ---------- analyze ----------
-  window.analyze = async function () {
+  // aclaraciones: las respuestas a las preguntas que hizo la IA, cuando se
+  // recalcula desde el resultado. Desde el botón Analizar no viene nada.
+  window.analyze = async function (aclaraciones) {
     saveDictationDraft();
     const dictation = dictationDraft;
     if (!dictation.trim() && !photo) {
@@ -963,6 +967,11 @@ function todayISO() {
       // que cualquiera lo usara como API de Claude gratis, facturada a nuestra
       // cuenta. Ahora solo aportamos el dictado y la foto.
       const payload = { dictation: dictation.trim() };
+      const gr = Number(String(gramosDraft).replace(",", "."));
+      if (gr >= 1 && gr <= 5000) payload.gramos = Math.round(gr);
+      if (Array.isArray(aclaraciones) && aclaraciones.length) payload.aclaraciones = aclaraciones;
+      const corr = correccionesParaIA();
+      if (corr.length) payload.correcciones = corr;
       if (photo) payload.photo = { mediaType: photo.mediaType, data: photo.dataUrl.split(",")[1] };
 
       const response = await fetch("/.netlify/functions/analyze", {
@@ -993,7 +1002,14 @@ function todayISO() {
         // Si la función todavía es la vieja (sin redeploy), no viene: la
         // comida se guarda igual, sin detalle.
         detalle: obj.detalle ? N.limpiar(obj.detalle, N.CLAVES_DETALLE) : null,
+        // Hasta 2 dudas con opciones; una función vieja no las manda.
+        preguntas: (Array.isArray(obj.preguntas) ? obj.preguntas : [])
+          .filter((p) => p && p.pregunta && Array.isArray(p.opciones) && p.opciones.length >= 2)
+          .slice(0, 2)
+          .map((p) => ({ pregunta: String(p.pregunta), opciones: p.opciones.map(String).slice(0, 4) })),
+        aclarado: !!(aclaraciones && aclaraciones.length),
       };
+      respuestas = {};
       showParsedDetail = false;
     } catch (e) {
       console.error(e);
@@ -1038,7 +1054,8 @@ function todayISO() {
     const input = document.getElementById("capture-date");
     const date = input && /^\d{4}-\d{2}-\d{2}$/.test(input.value) ? input.value : todayISO();
     if (date > todayISO()) { errorMsg = "Esa fecha todavía no llegó."; render(); return; }
-    const meal = { id: uid(), date, consumed: parsed.consumed, protein: parsed.protein, carbs: parsed.carbs, fat: parsed.fat, note: parsed.note, score: parsed.nutritionScore, comment: parsed.nutritionComment, createdAt: Date.now() };
+    // kcalIA: lo que estimó la IA, para saber después si lo corregiste.
+    const meal = { id: uid(), date, consumed: parsed.consumed, protein: parsed.protein, carbs: parsed.carbs, fat: parsed.fat, note: parsed.note, score: parsed.nutritionScore, comment: parsed.nutritionComment, kcalIA: parsed.consumed, createdAt: Date.now() };
     if (parsed.detalle) meal.nutrientes = parsed.detalle;
     const mom = momentoPorDefecto(date);
     if (mom) meal.momento = mom;
@@ -1055,7 +1072,7 @@ function todayISO() {
     dayMeta = { ...dayMeta, [date]: nextMeta };
     persistDayMeta();
     parsed = null; photo = null;
-    dictationDraft = "";
+    dictationDraft = ""; gramosDraft = ""; respuestas = {};
     showCapture = false;
     captureDate = null;
     momentoCarga = null;
@@ -1066,7 +1083,40 @@ function todayISO() {
     expandedDays = { ...expandedDays, [date]: true };
     render();
   };
-  window.discardParsed = function () { parsed = null; render(); };
+  window.discardParsed = function () { parsed = null; respuestas = {}; render(); };
+  window.elegirRespuesta = function (i, j) {
+    const r = { ...respuestas };
+    if (r[i] === j) delete r[i]; else r[i] = j;
+    respuestas = r;
+    render();
+  };
+  window.recalcular = function () {
+    if (!parsed || analyzing) return;
+    const acl = parsed.preguntas
+      .map((p, i) => (respuestas[i] != null ? { pregunta: p.pregunta, respuesta: p.opciones[respuestas[i]] } : null))
+      .filter(Boolean);
+    if (acl.length) window.analyze(acl);
+  };
+
+  // ---------- correcciones: la IA aprende de vos ----------
+  //
+  // Si corregís las kcal de una comida que analizó la IA, se guarda qué dijo
+  // ella y qué pusiste vos, y en los próximos análisis viaja como referencia:
+  // "la milanesa de casa no son 650, son 800". Va en goal, así viaja con la nube.
+  const MAX_CORRECCIONES = 30;
+  function registrarCorreccion(note, ia, corregido) {
+    const comida = String(note || "").trim().slice(0, 120);
+    if (!comida) return;
+    const clave = claveNota(comida);
+    const lista = (Array.isArray(goal.correcciones) ? goal.correcciones : []).filter((x) => x.clave !== clave);
+    goal = { ...goal, correcciones: [{ clave, comida, ia: Math.round(ia), corregido: Math.round(corregido), fecha: todayISO() }, ...lista].slice(0, MAX_CORRECCIONES) };
+    persistGoal();
+  }
+  function correccionesParaIA() {
+    return (Array.isArray(goal.correcciones) ? goal.correcciones : []).slice(0, 12)
+      .map((x) => ({ comida: x.comida, ia: x.ia, corregido: x.corregido }));
+  }
+  window.olvidarCorrecciones = function () { goal = { ...goal, correcciones: [] }; persistGoal(); render(); };
 
   // ---------- close/reopen day ----------
   window.openCloseDayConfirm = function () { showCloseDayConfirm = true; render(); };
@@ -1107,6 +1157,12 @@ function todayISO() {
     const note = document.getElementById("edit-meal-note-" + id).value;
     const elMom = document.getElementById("edit-meal-momento-" + id);
     const momento = elMom && COMIDAS_POSIBLES.indexOf(elMom.value) >= 0 ? elMom.value : null;
+    const antes = meals.find((m) => m.id === id);
+    if (antes && antes.kcalIA != null) {
+      // Contra lo que dijo la IA para la porción que tenía: cambiar ½ o 2 no es corregirla.
+      const ia = antes.kcalIA * (antes.porcion || 1);
+      if (Math.abs(consumed - ia) >= Math.max(30, ia * 0.08)) registrarCorreccion(note, ia, consumed);
+    }
     meals = meals.map((m) => {
       if (m.id !== id) return m;
       const out = { ...m, date, consumed, protein, carbs, fat, note };
@@ -2073,6 +2129,22 @@ function todayISO() {
     return h + pieVersion() + `</div>`;
   }
 
+  // Lo que la IA aprendió de tus correcciones: se ve y se puede borrar.
+  function correccionesHTML() {
+    const lista = Array.isArray(goal.correcciones) ? goal.correcciones : [];
+    let h = `<div class="card">
+      <div class="title" style="margin-bottom:8px;">Lo que la IA aprendió de vos</div>`;
+    if (!lista.length) {
+      return h + `<div class="small dim" style="line-height:1.45">Cuando corregís las calorías de una comida que analizó la IA, queda anotado acá y lo tiene en cuenta la próxima vez que cargues algo parecido.</div></div>`;
+    }
+    h += `<div class="small dim" style="margin-bottom:10px;line-height:1.45">La IA usa estas correcciones como referencia cuando cargás algo parecido.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${lista.slice(0, 12).map((x) => `<div class="row" style="justify-content:space-between;gap:10px;font-size:14px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.comida)}</span><span style="flex-shrink:0"><span class="dim" style="text-decoration:line-through">${kcal(x.ia)}</span> → <b>${kcal(x.corregido)}</b> kcal</span></div>`).join("")}</div>
+      ${lista.length > 12 ? `<div class="xs dim" style="margin-top:6px">Y ${lista.length - 12} más, que ya no viajan: van las 12 últimas.</div>` : ""}
+      <button class="btn-secondary" style="margin-top:12px;" onclick="olvidarCorrecciones()">Olvidarlas</button>
+    </div>`;
+    return h;
+  }
+
   // ---------- PANTALLA: AJUSTES ----------
   function screenAjustes(c) {
     let h = `<div class="screen">${topbarVolver("Ajustes")}`;
@@ -2085,6 +2157,7 @@ function todayISO() {
     </div>`;
 
     h += nubeHTML();
+    h += correccionesHTML();
 
     h += `<div class="card">
       <div class="title" style="margin-bottom:12px;">Objetivo</div>
@@ -3416,6 +3489,20 @@ function todayISO() {
       if (parsed.totalExpenditure != null || parsed.exercise != null) {
         h += `<div class="grid2">${parsed.totalExpenditure != null ? Stat("Gasto del día (app)", parsed.totalExpenditure.toFixed(0) + " kcal") : ""}${parsed.exercise != null ? Stat("Ejercicio", parsed.exercise.toFixed(0) + " kcal") : ""}</div>`;
       }
+      if (parsed.preguntas.length) {
+        const alguna = parsed.preguntas.some((p, i) => respuestas[i] != null);
+        h += `<div style="display:flex;flex-direction:column;gap:12px;background:var(--bg);border-radius:16px;padding:14px">
+          <div class="p-titulito">Para afinar el número</div>
+          ${parsed.preguntas.map((p, i) => `<div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font-weight:700;line-height:1.3">${esc(p.pregunta)}</div>
+            <div role="group" aria-label="${esc(p.pregunta)}" style="display:flex;flex-wrap:wrap;gap:6px">${p.opciones.map((o, j) => `<button class="p-elegir" style="flex:1 1 auto" aria-pressed="${respuestas[i] === j}" onclick="elegirRespuesta(${i},${j})">${esc(o)}</button>`).join("")}</div>
+          </div>`).join("")}
+          <button class="btn-secondary" onclick="recalcular()" ${alguna && !analyzing ? "" : "disabled"}>${analyzing ? '<span class="spin">↻</span> Recalculando…' : "Recalcular con esto"}</button>
+          <div class="xs dim">Si no querés contestar, guardala así.</div>
+        </div>`;
+      } else if (parsed.aclarado) {
+        h += `<div class="xs dim">Recalculado con tus respuestas.</div>`;
+      }
       if (parsed.detalle) {
         const n = { ...parsed.detalle, kcal: parsed.consumed, proteinas_g: parsed.protein, carbohidratos_g: parsed.carbs, grasas_g: parsed.fat };
         h += `<div>${bloqueNutrientes(n, 0, showParsedDetail, "toggleParsedDetail()")}</div>`;
@@ -3451,6 +3538,11 @@ function todayISO() {
         <button class="btn-ghost" onclick="removePhoto()" aria-label="Quitar foto">${icon("close", "var(--textDim)", 18)}</button>
       </div>`;
     }
+    h += `<div style="display:flex;flex-direction:column;gap:6px">
+        <label class="label" for="gramos-input">¿Cuánto pesaba? <span class="dim" style="font-weight:500">(opcional)</span></label>
+        <div class="row gap8" style="align-items:center"><input id="gramos-input" type="number" inputmode="numeric" min="1" max="5000" placeholder="Ej: 350" value="${esc(gramosDraft)}" style="max-width:130px"><span class="small dim">gramos, si lo pesaste</span></div>
+        ${photo ? "" : `<div class="xs dim" style="line-height:1.45">Tip para la foto: poné un tenedor o tu mano al lado del plato y sacala un poco de costado. Así se calcula mejor el tamaño.</div>`}
+      </div>`;
     if (errorMsg) h += `<div class="small" style="color:var(--rojoTexto)">${esc(errorMsg)}</div>`;
     h += momentosChips(fecha);
     h += frecuentesPulso(c);
@@ -3939,6 +4031,8 @@ function todayISO() {
   function saveDictationDraft() {
     const t = document.getElementById("dictation-textarea");
     if (t) dictationDraft = t.value;
+    const g = document.getElementById("gramos-input");
+    if (g) gramosDraft = g.value;
   }
 
   function render() {

@@ -79,6 +79,9 @@ Reglas:
 - summary: un resumen de una frase en español de esta comida/actividad puntual.
 - nutrition_score: de 1 a 10, valorando la calidad nutricional de ESTA comida puntual (no del día completo). Considerá la densidad de proteína en relación a las calorías totales, el balance entre proteína/carbos/grasa, si son alimentos enteros o muy procesados/fritos, y la presencia de vegetales o fibra si se mencionan. 10 = muy completa y nutritiva, 1 = muy pobre (ej: solo azúcar o frituras sin proteína ni fibra).
 - nutrition_comment: un comentario breve en español (máximo 8 palabras) sobre el punto más relevante, por ejemplo "Falta proteína", "Gran fuente de grasas saludables", "Buen balance de macros", "Alta en sodio y frituras".
+- Si la persona dice cuánto pesaba la comida (en gramos, con balanza), usá ese peso: es más confiable que lo que se ve en la foto.
+- Si te pasa correcciones suyas de análisis anteriores y esta comida es la misma o muy parecida, usá la cifra que ella corrigió como referencia: esas son sus porciones y sus recetas reales.
+- preguntas: si algo que no se puede saber por la foto ni por el relato cambia mucho las calorías (si es frito, al horno o a la plancha; si lleva aceite, manteca o aderezo y cuánto; el tamaño real de la porción; si es el plato entero o la mitad), hacé hasta 2 preguntas cortas, cada una con 2 a 4 opciones de respuesta de pocas palabras. Igual devolvé tu mejor estimación con todo lo demás. Si no hay ninguna duda que cambie más de unas 100 kcal, o si la persona ya contestó aclaraciones, devolvé la lista vacía.
 - detalle: el resto de los macronutrientes, las vitaminas y los minerales de ESTA comida. Acá NO apliques el sesgo hacia arriba de las calorías: sobreestimar vitaminas te haría creer que estás cubierto cuando no. Si el relato es solo de actividad, sin comida, todo el detalle va en 0.
 ${REGLAS_DETALLE}
 
@@ -98,6 +101,15 @@ const ESQUEMA_NUTRICION = {
     summary: { type: "string" },
     nutrition_score: { type: "number" },
     nutrition_comment: { type: "string" },
+    preguntas: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { pregunta: { type: "string" }, opciones: { type: "array", items: { type: "string" } } },
+        required: ["pregunta", "opciones"],
+        additionalProperties: false,
+      },
+    },
     detalle: {
       type: "object",
       properties: numeros(CAMPOS_DETALLE),
@@ -108,7 +120,7 @@ const ESQUEMA_NUTRICION = {
   required: [
     "consumed_kcal", "protein_g", "carbs_g", "fat_g",
     "total_expenditure_kcal", "exercise_kcal",
-    "summary", "nutrition_score", "nutrition_comment", "detalle",
+    "summary", "nutrition_score", "nutrition_comment", "preguntas", "detalle",
   ],
   additionalProperties: false,
 };
@@ -222,6 +234,27 @@ const PERFILES = {
   nutrientes: { system: SYSTEM_PROMPT_NUTRIENTES, schema: ESQUEMA_NUTRIENTES },
   sugerencias: { system: SYSTEM_PROMPT_SUGERENCIAS, schema: ESQUEMA_SUGERENCIAS, armarTexto: (payload) => textoSugerencias(payload.sugerencia) },
 };
+
+// Lo que la app agrega para afinar la estimación: el peso de la porción, las
+// respuestas a las preguntas que hizo el modelo y las correcciones que la
+// persona hizo antes. Todo validado y recortado: el cliente nunca manda texto
+// libre largo ni instrucciones.
+function contextoExtra(p) {
+  const corto = (v, n) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
+  const partes = [];
+  const g = Number(p.gramos);
+  if (Number.isFinite(g) && g >= 1 && g <= 5000) partes.push(`La porción pesaba ${Math.round(g)} g en total (pesada con balanza).`);
+  const acl = (Array.isArray(p.aclaraciones) ? p.aclaraciones : []).slice(0, 4)
+    .map((a) => a && corto(a.pregunta, 150) && corto(a.respuesta, 80) ? `- ${corto(a.pregunta, 150)} → ${corto(a.respuesta, 80)}` : "")
+    .filter(Boolean);
+  if (acl.length) partes.push("Aclaraciones de la persona a tus preguntas (ya contestó, no vuelvas a preguntar):\n" + acl.join("\n"));
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) && n >= 0 && n <= 10000 ? Math.round(n) : null; };
+  const corr = (Array.isArray(p.correcciones) ? p.correcciones : []).slice(0, 12)
+    .map((c) => c && corto(c.comida, 120) && num(c.ia) != null && num(c.corregido) != null ? `- «${corto(c.comida, 120)}»: estimaste ${num(c.ia)} kcal y la persona lo corrigió a ${num(c.corregido)} kcal.` : "")
+    .filter(Boolean);
+  if (corr.length) partes.push("Correcciones que hizo esta persona en análisis anteriores:\n" + corr.join("\n"));
+  return partes;
+}
 
 function responder(statusCode, body) {
   return {
@@ -343,7 +376,8 @@ exports.handler = async function (event) {
       });
     }
 
-    bloques.push({ type: "text", text: dictation || "Analizá la foto adjunta." });
+    const extra = contextoExtra(payload);
+    bloques.push({ type: "text", text: [dictation || "Analizá la foto adjunta.", ...extra].join("\n\n") });
   }
 
   let respuesta;
