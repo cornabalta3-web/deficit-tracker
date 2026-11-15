@@ -244,8 +244,8 @@
   .p-op { font-size: 20px; font-weight: 700; color: var(--textDim); }
 
   /* hojas de Pulso: el +, una comida, ideas, editar inicio */
-  .p-pestanas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 17px; background: var(--bg); }
-  .p-pestanas > button { min-height: 46px; border-radius: 13px; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text); }
+  .p-pestanas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 17px; background: var(--bg); }
+  .p-pestanas > button { min-height: 46px; border-radius: 13px; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--text); }
   .p-pestanas > button[aria-selected="true"] { background: var(--acento); color: var(--acentoInk); box-shadow: var(--acentoSombra); }
   .p-segmento { display: grid; gap: 4px; padding: 4px; border-radius: 14px; background: var(--track); }
   .p-segmento > button { min-height: 40px; border-radius: 11px; color: var(--textDim); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 4px; }
@@ -297,6 +297,44 @@
   .premio-letra { font-size: 12px; font-weight: 600; color: var(--textDim); }
   .premio-cierre { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
   .premio-cierre-t { font-size: 24px; font-weight: 800; letter-spacing: -0.4px; }
+  /* ---------- v22: gimnasio ---------- */
+  .g-full { position: fixed; inset: 0; z-index: 62; background: var(--bg); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .g-cuerpo { max-width: 620px; margin: 0 auto; padding: calc(18px + env(safe-area-inset-top, 0px)) 16px calc(40px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; }
+  .g-top { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; }
+  .g-top > * { max-width: 588px; margin-left: auto; margin-right: auto; }
+  .g-vivo .g-cuerpo { padding-top: 14px; }
+  .g-crono { font-size: 32px; font-weight: 800; letter-spacing: -1px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .g-rutina { background: var(--bg); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .g-ej { background: var(--surface); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .g-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .g-campos label { font-size: 12px; font-weight: 600; color: var(--textDim); display: flex; flex-direction: column; gap: 4px; }
+  .g-campos input { padding: 9px 10px; }
+  .g-cat { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; padding: 8px 12px; border-radius: 14px; background: var(--bg); text-align: left; width: 100%; }
+  .g-tarjeta { padding: 14px 10px 8px; background: var(--surface); margin: 0; }
+  .g-tarjeta > .row:first-child { padding: 0 4px; }
+  .g-series { width: 100%; border-collapse: separate; border-spacing: 0 6px; font-variant-numeric: tabular-nums; }
+  .g-series th { font-size: 11px; font-weight: 700; color: var(--textDim); text-transform: uppercase; letter-spacing: .5px; text-align: center; padding: 0 2px; }
+  .g-series td { text-align: center; padding: 0 2px; height: 46px; }
+  .g-series tr.hecha td { background: var(--bienSuave); }
+  .g-series tr.hecha td:first-child { border-radius: 12px 0 0 12px; }
+  .g-series tr.hecha td:last-child { border-radius: 0 12px 12px 0; }
+  .g-ant { font-size: 13px; font-weight: 600; color: var(--textDim); white-space: nowrap; }
+  .g-in { width: 64px; text-align: center; font-weight: 800; font-size: 17px; padding: 8px 4px; border-radius: 10px; }
+  tr.hecha .g-in { background: transparent; border-color: transparent; }
+  .g-nro { display: inline-flex; width: 28px; height: 28px; border-radius: 8px; align-items: center; justify-content: center; background: var(--surfaceRaised); font-size: 13px; font-weight: 700; }
+  .g-tilde { width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--line); }
+  .g-tilde.si { background: var(--bien); border-color: var(--bien); }
+  .g-descanso { position: fixed; z-index: 63; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); max-width: 596px; margin: 0 auto; background: var(--navBg); border: 1px solid var(--line); border-radius: 22px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 -10px 30px rgba(0,0,0,.35); }
+  .g-desc-t { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--faltaTexto); }
+  .g-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .g-stat { background: var(--surface); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .g-stat b { font-size: 22px; font-weight: 800; letter-spacing: -.4px; font-variant-numeric: tabular-nums; }
+  .g-stat span { font-size: 12px; color: var(--textDim); font-weight: 600; }
+  .g-record { display: flex; align-items: center; gap: 10px; background: var(--ojoSuave); box-shadow: inset 0 0 0 1px var(--ojo); border-radius: 14px; padding: 10px 12px; }
+  .g-pill { position: fixed; z-index: 58; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--acento); color: var(--acentoInk); font-weight: 700; font-size: 14px; box-shadow: var(--acentoSombra); max-width: calc(100% - 32px); }
+  .g-pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .g-pill b { font-variant-numeric: tabular-nums; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 <!-- Catálogo de nutrientes y referencias diarias, compartido con mama/index.html. -->
 <script src="nutrientes.js"></script>
@@ -326,7 +364,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v21-html · la IA pregunta, gramos opcionales y aprende de tus correcciones";
+  const APP_VERSION = "v22-html · gimnasio: rutinas, entrenamiento en vivo y progreso";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -639,6 +677,7 @@ function todayISO() {
       loading = false;
       applyTheme();
       prepararPremio();
+      reanudarGym();
       render();
       // Quien ya usaba la app antes de la v17 sube su copia la primera vez.
       if (goal.onboarded) {
@@ -1324,6 +1363,7 @@ function todayISO() {
     abajo: '<path d="m6 9 6 6 6-6"></path>',
     bandera: '<path d="M5 21V4"></path><path d="M5 4h11l-2 4 2 4H5"></path>',
     menos: '<path d="M6 12h12"></path>',
+    pesa: '<path d="M6.5 6.5v11"></path><path d="M17.5 6.5v11"></path><path d="M3.5 9v6"></path><path d="M20.5 9v6"></path><path d="M6.5 12h11"></path>',
   };
   function icon(name, color, size, sw) {
     return `<svg aria-hidden="true" width="${size || 21}" height="${size || 21}" viewBox="0 0 24 24" fill="none" stroke="${color || "currentColor"}" style="color:${color || "currentColor"};flex-shrink:0" stroke-width="${sw || 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
@@ -3442,7 +3482,7 @@ function todayISO() {
       </div>
     </div>`;
   }
-  window.elegirPestanaCarga = function (t) { saveDictationDraft(); capturaTab = t === "ejercicio" ? "ejercicio" : "comida"; render(); };
+  window.elegirPestanaCarga = function (t) { saveDictationDraft(); capturaTab = t === "ejercicio" || t === "gimnasio" ? t : "comida"; render(); };
   window.elegirMomento = function (m) { saveDictationDraft(); momentoCarga = m; render(); };
   function momentoPorDefecto(fecha) {
     if (momentoCarga) return momentoCarga;
@@ -3452,7 +3492,7 @@ function todayISO() {
   }
   function pestanasCarga() {
     const p = (id, nombre, ic) => `<button role="tab" aria-selected="${capturaTab === id}" onclick="elegirPestanaCarga('${id}')">${icon(ic, "currentColor", 18, 2.2)}${nombre}</button>`;
-    return `<div class="p-pestanas" role="tablist" aria-label="Qué querés cargar">${p("comida", "Comida", "cubiertos")}${p("ejercicio", "Ejercicio", "llama")}</div>`;
+    return `<div class="p-pestanas" role="tablist" aria-label="Qué querés cargar">${p("comida", "Comida", "cubiertos")}${p("ejercicio", "Ejercicio", "llama")}${p("gimnasio", "Gimnasio", "pesa")}</div>`;
   }
   function momentosChips(fecha) {
     const sel = momentoPorDefecto(fecha);
@@ -3605,8 +3645,533 @@ function todayISO() {
     return `<div class="sheet-backdrop" onclick="closeCapture()"></div><div class="sheet p-hoja" role="dialog" aria-label="Cargar comida o ejercicio">
       <div class="grab"></div>
       <div class="row gap8" style="align-items:center;margin-bottom:14px"><div style="flex:1">${pestanasCarga()}</div><button class="icon-btn" style="margin-right:-6px" onclick="closeCapture()" aria-label="Cerrar">${icon("close", "var(--text)", 22)}</button></div>
-      <div style="display:flex;flex-direction:column;gap:16px">${capturaTab === "ejercicio" ? cargaEjercicio(c) : cargaComida(c)}</div>
+      <div style="display:flex;flex-direction:column;gap:16px">${capturaTab === "gimnasio" ? cargaGimnasio(c) : capturaTab === "ejercicio" ? cargaEjercicio(c) : cargaComida(c)}</div>
     </div>`;
+  }
+
+  // ================== v22: gimnasio ==================
+  //
+  // Rutinas guardadas, entrenamiento en vivo (kilos y repes por serie, lo de la
+  // vez pasada al lado, descanso con cuenta regresiva), resumen con calorías
+  // estimadas que se suman al gasto del día, y progreso por ejercicio.
+  // Todo vive en goal.gym = {rutinas, sesiones, enCurso}: viaja con la nube y
+  // con la copia de seguridad sin tocar nada más. El entrenamiento en curso se
+  // guarda en cada cambio, así un recargón o un celu que se duerme no lo pierde.
+  const GYM_CATALOGO = [
+    ["Press de banca", "Pecho", "barra"], ["Press inclinado con mancuernas", "Pecho", "mancuernas"], ["Press de banca con mancuernas", "Pecho", "mancuernas"],
+    ["Aperturas", "Pecho", "máquina"], ["Cruce de poleas", "Pecho", "polea"], ["Flexiones", "Pecho", "peso corporal"], ["Fondos", "Tríceps", "peso corporal"],
+    ["Dominadas", "Espalda", "peso corporal"], ["Jalón al pecho", "Espalda", "polea"], ["Remo con barra", "Espalda", "barra"], ["Remo con mancuerna", "Espalda", "mancuerna"],
+    ["Remo en polea baja", "Espalda", "polea"], ["Peso muerto", "Espalda", "barra"], ["Pullover en polea", "Espalda", "polea"],
+    ["Sentadilla", "Piernas", "barra"], ["Prensa", "Piernas", "máquina"], ["Peso muerto rumano", "Piernas", "barra"], ["Estocadas", "Piernas", "mancuernas"],
+    ["Sentadilla búlgara", "Piernas", "mancuernas"], ["Extensiones de cuádriceps", "Piernas", "máquina"], ["Curl femoral", "Piernas", "máquina"],
+    ["Hip thrust", "Glúteos", "barra"], ["Abductores", "Glúteos", "máquina"], ["Gemelos de pie", "Piernas", "máquina"],
+    ["Press militar", "Hombros", "barra"], ["Press de hombros con mancuernas", "Hombros", "mancuernas"], ["Vuelos laterales", "Hombros", "mancuernas"],
+    ["Vuelos posteriores", "Hombros", "mancuernas"], ["Face pull", "Hombros", "polea"], ["Encogimientos", "Hombros", "mancuernas"],
+    ["Curl con barra", "Bíceps", "barra"], ["Curl con mancuernas", "Bíceps", "mancuernas"], ["Curl martillo", "Bíceps", "mancuernas"], ["Curl en polea", "Bíceps", "polea"],
+    ["Tríceps en polea", "Tríceps", "polea"], ["Press francés", "Tríceps", "barra"], ["Extensión de tríceps por encima", "Tríceps", "mancuerna"],
+    ["Plancha", "Core", "peso corporal"], ["Abdominales en polea", "Core", "polea"], ["Elevación de piernas", "Core", "peso corporal"], ["Rueda abdominal", "Core", "rueda"],
+  ].map(([nombre, grupo, equipo]) => ({ nombre, grupo, equipo }));
+  const GYM_GRUPOS = ["Pecho", "Espalda", "Piernas", "Glúteos", "Hombros", "Bíceps", "Tríceps", "Core"];
+  const GYM_MAX_SESIONES = 400;
+
+  let gymEdit = null;      // {id, nombre, ejercicios: [{nombre, grupo, series, reps, descanso}]}
+  let gymBuscar = "";
+  let gymGrupo = null;
+  let gymAgregando = false; // eligiendo un ejercicio para sumar al entrenamiento en curso
+  let gymReloj = null;      // "si" | "no": si el Fitbit ya contó las calorías
+  let gymVerEj = null;      // nombre del ejercicio con su progreso abierto
+  let gymConfirmarDescartar = false;
+  let gymTimer = null;
+
+  function gymData() {
+    const g = goal.gym || {};
+    return {
+      rutinas: Array.isArray(g.rutinas) ? g.rutinas : [],
+      sesiones: Array.isArray(g.sesiones) ? g.sesiones : [],
+      enCurso: g.enCurso && Array.isArray(g.enCurso.ejercicios) ? g.enCurso : null,
+    };
+  }
+  function guardarGym(cambios) {
+    goal = { ...goal, gym: { ...gymData(), ...cambios } };
+    persistGoal();
+  }
+  const numGym = (v) => { const n = Number(String(v == null ? "" : v).replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
+  const fmtKg = (v) => (Math.round(v * 10) / 10).toLocaleString("es-AR");
+  function claveEj(nombre) { return String(nombre || "").trim().toLowerCase(); }
+
+  // Las series de la última vez que hiciste ese ejercicio, para ponerlas al lado.
+  function gymAnterior(nombre) {
+    const k = claveEj(nombre);
+    const ses = gymData().sesiones;
+    for (let i = ses.length - 1; i >= 0; i--) {
+      const e = (ses[i].ejercicios || []).find((x) => claveEj(x.nombre) === k);
+      if (e && e.series && e.series.length) return e.series;
+    }
+    return [];
+  }
+  function mejorPeso(series) { return series.reduce((m, s) => (s.reps > 0 && s.kg > m ? s.kg : m), 0); }
+  function volumen(series) { return series.reduce((t, s) => t + (s.kg || 0) * (s.reps || 0), 0); }
+  function unoRM(series) { return series.reduce((m, s) => (s.reps > 0 && s.kg > 0 ? Math.max(m, s.kg * (1 + Math.min(s.reps, 12) / 30)) : m), 0); }
+
+  // ---------- rutinas ----------
+  window.gymNueva = function () { gymEdit = { id: null, nombre: "", ejercicios: [] }; gymBuscar = ""; gymGrupo = null; showCapture = false; render(); };
+  window.gymEditar = function (i) {
+    const r = gymData().rutinas[i];
+    if (!r) return;
+    gymEdit = { id: r.id, nombre: r.nombre, ejercicios: r.ejercicios.map((e) => ({ ...e })) };
+    gymBuscar = ""; gymGrupo = null; showCapture = false;
+    render();
+  };
+  window.gymEditCampo = function (campo, el) { if (gymEdit) gymEdit = { ...gymEdit, [campo]: el.value }; };
+  window.gymEditEj = function (i, campo, el) {
+    if (!gymEdit || !gymEdit.ejercicios[i]) return;
+    const ejs = gymEdit.ejercicios.slice();
+    ejs[i] = { ...ejs[i], [campo]: campo === "reps" ? el.value.slice(0, 12) : Math.round(numGym(el.value)) };
+    gymEdit = { ...gymEdit, ejercicios: ejs };
+  };
+  window.gymMover = function (i, d) {
+    if (!gymEdit) return;
+    const ejs = gymEdit.ejercicios.slice();
+    const j = i + d;
+    if (j < 0 || j >= ejs.length) return;
+    [ejs[i], ejs[j]] = [ejs[j], ejs[i]];
+    gymEdit = { ...gymEdit, ejercicios: ejs };
+    render();
+  };
+  window.gymQuitarEj = function (i) { if (gymEdit) { gymEdit = { ...gymEdit, ejercicios: gymEdit.ejercicios.filter((_, k) => k !== i) }; render(); } };
+  window.gymBuscarEj = function (el) { gymBuscar = el.value; pintarCatalogo(); };
+  window.gymElegirGrupo = function (g) { gymGrupo = gymGrupo === g ? null : g; pintarCatalogo(); };
+  function catalogoFiltrado() {
+    const q = claveEj(gymBuscar);
+    const propios = [];
+    gymData().rutinas.forEach((r) => r.ejercicios.forEach((e) => { if (!GYM_CATALOGO.some((x) => claveEj(x.nombre) === claveEj(e.nombre)) && !propios.some((x) => claveEj(x.nombre) === claveEj(e.nombre))) propios.push({ nombre: e.nombre, grupo: e.grupo || "Otro", equipo: "tuyo" }); }));
+    return GYM_CATALOGO.concat(propios)
+      .filter((x) => (!gymGrupo || x.grupo === gymGrupo) && (!q || claveEj(x.nombre).includes(q)))
+      .slice(0, 30);
+  }
+  // Solo la lista: redibujar todo le sacaría el foco al buscador mientras escribís.
+  function pintarCatalogo() {
+    const el = document.getElementById("gym-catalogo");
+    if (el) el.innerHTML = catalogoHTML();
+    document.querySelectorAll("[data-grupo]").forEach((b) => b.setAttribute("aria-pressed", String(b.getAttribute("data-grupo") === gymGrupo)));
+  }
+  function catalogoHTML() {
+    const lista = catalogoFiltrado();
+    const q = gymBuscar.trim();
+    let h = lista.map((x, i) => `<button class="g-cat" onclick="gymSumarDelCatalogo(${i})"><span style="min-width:0"><b>${esc(x.nombre)}</b><span class="xs dim"> · ${esc(x.grupo)}${x.equipo ? " · " + esc(x.equipo) : ""}</span></span>${icon("plus", "var(--acento)", 18)}</button>`).join("");
+    if (q && !lista.some((x) => claveEj(x.nombre) === claveEj(q))) {
+      h += `<button class="g-cat" onclick="gymSumarPropio()"><span><b>Crear «${esc(q.slice(0, 60))}»</b><span class="xs dim"> · ${esc(gymGrupo || "sin grupo")}</span></span>${icon("plus", "var(--acento)", 18)}</button>`;
+    }
+    return h || `<div class="xs dim">No encontré nada. Escribí el nombre para crearlo.</div>`;
+  }
+  function sumarEjercicioElegido(x) {
+    if (gymAgregando) {
+      const d = gymData();
+      if (!d.enCurso) return;
+      const ant = gymAnterior(x.nombre);
+      const series = (ant.length ? ant : [{ kg: 0, reps: 10 }, { kg: 0, reps: 10 }, { kg: 0, reps: 10 }]).map((s) => ({ kg: s.kg || "", reps: s.reps || "", hecha: false }));
+      guardarGym({ enCurso: { ...d.enCurso, ejercicios: d.enCurso.ejercicios.concat({ nombre: x.nombre, grupo: x.grupo, descanso: 90, objetivo: "", series }) } });
+      gymAgregando = false; gymBuscar = ""; gymGrupo = null;
+      render();
+      return;
+    }
+    if (!gymEdit) return;
+    gymEdit = { ...gymEdit, ejercicios: gymEdit.ejercicios.concat({ nombre: x.nombre, grupo: x.grupo, series: 3, reps: "10", descanso: 90 }) };
+    gymBuscar = "";
+    render();
+  }
+  window.gymSumarDelCatalogo = function (i) { const x = catalogoFiltrado()[i]; if (x) sumarEjercicioElegido(x); };
+  window.gymSumarPropio = function () { const n = gymBuscar.trim().slice(0, 60); if (n) sumarEjercicioElegido({ nombre: n, grupo: gymGrupo || "Otro", equipo: "tuyo" }); };
+  window.gymGuardarRutina = function () {
+    if (!gymEdit) return;
+    const nombre = String(gymEdit.nombre || "").trim().slice(0, 50) || "Mi rutina";
+    if (!gymEdit.ejercicios.length) { gymEdit = { ...gymEdit, error: "Sumá al menos un ejercicio." }; render(); return; }
+    const ejercicios = gymEdit.ejercicios.map((e) => ({ nombre: e.nombre, grupo: e.grupo || "Otro", series: Math.max(1, Math.min(10, Math.round(numGym(e.series)) || 3)), reps: String(e.reps || "10").slice(0, 12), descanso: Math.max(0, Math.min(600, Math.round(numGym(e.descanso)))) }));
+    const d = gymData();
+    const r = { id: gymEdit.id || uid(), nombre, ejercicios };
+    const rutinas = gymEdit.id ? d.rutinas.map((x) => (x.id === r.id ? r : x)) : d.rutinas.concat(r);
+    guardarGym({ rutinas });
+    gymEdit = null;
+    abrirGimnasio();
+  };
+  window.gymBorrarRutina = function () {
+    if (!gymEdit || !gymEdit.id) return;
+    guardarGym({ rutinas: gymData().rutinas.filter((x) => x.id !== gymEdit.id) });
+    gymEdit = null;
+    abrirGimnasio();
+  };
+  window.gymCancelarEdicion = function () { gymEdit = null; abrirGimnasio(); };
+  function abrirGimnasio() { showCapture = true; capturaTab = "gimnasio"; render(); }
+
+  // ---------- entrenamiento en curso ----------
+  window.gymEmpezar = function (i) {
+    const r = i == null ? null : gymData().rutinas[i];
+    const ejercicios = r ? r.ejercicios.map((e) => {
+      const ant = gymAnterior(e.nombre);
+      const n = Math.max(1, e.series || 3);
+      const repsObj = parseInt(e.reps, 10) || "";
+      const series = Array.from({ length: n }, (_, k) => {
+        const a = ant[k] || ant[ant.length - 1];
+        return { kg: a ? a.kg : "", reps: a ? a.reps : repsObj, hecha: false };
+      });
+      return { nombre: e.nombre, grupo: e.grupo, descanso: e.descanso, objetivo: `${n} × ${e.reps}`, series };
+    }) : [];
+    guardarGym({ enCurso: { rutinaId: r ? r.id : null, nombre: r ? r.nombre : "Entrenamiento libre", inicio: Date.now(), fin: null, descansoHasta: null, descansoTotal: 0, ejercicios } });
+    showCapture = false; gymReloj = null; gymAgregando = !r;
+    arrancarTimer();
+    render();
+  };
+  // Escribir kilos o repes no redibuja: se guarda y listo, así no se pierde el foco.
+  window.gymSerie = function (ei, si, campo, el) {
+    const d = gymData();
+    if (!d.enCurso || !d.enCurso.ejercicios[ei] || !d.enCurso.ejercicios[ei].series[si]) return;
+    const ejs = d.enCurso.ejercicios.map((e, i) => (i !== ei ? e : { ...e, series: e.series.map((s, k) => (k !== si ? s : { ...s, [campo]: el.value.slice(0, 6) })) }));
+    guardarGym({ enCurso: { ...d.enCurso, ejercicios: ejs } });
+  };
+  window.gymTildar = function (ei, si) {
+    const d = gymData();
+    const e = d.enCurso && d.enCurso.ejercicios[ei];
+    if (!e || !e.series[si]) return;
+    const hecha = !e.series[si].hecha;
+    const ejs = d.enCurso.ejercicios.map((x, i) => (i !== ei ? x : { ...x, series: x.series.map((s, k) => (k !== si ? s : { ...s, hecha })) }));
+    const desc = hecha && e.descanso > 0 ? e.descanso : 0;
+    guardarGym({ enCurso: { ...d.enCurso, ejercicios: ejs, descansoHasta: desc ? Date.now() + desc * 1000 : d.enCurso.descansoHasta, descansoTotal: desc || d.enCurso.descansoTotal || 0 } });
+    render();
+  };
+  window.gymAgregarSerie = function (ei) {
+    const d = gymData();
+    const e = d.enCurso && d.enCurso.ejercicios[ei];
+    if (!e) return;
+    const u = e.series[e.series.length - 1] || { kg: "", reps: "" };
+    const ejs = d.enCurso.ejercicios.map((x, i) => (i !== ei ? x : { ...x, series: x.series.concat({ kg: u.kg, reps: u.reps, hecha: false }) }));
+    guardarGym({ enCurso: { ...d.enCurso, ejercicios: ejs } });
+    render();
+  };
+  window.gymQuitarSerie = function (ei) {
+    const d = gymData();
+    const e = d.enCurso && d.enCurso.ejercicios[ei];
+    if (!e) return;
+    const ejs = e.series.length > 1
+      ? d.enCurso.ejercicios.map((x, i) => (i !== ei ? x : { ...x, series: x.series.slice(0, -1) }))
+      : d.enCurso.ejercicios.filter((_, i) => i !== ei);
+    guardarGym({ enCurso: { ...d.enCurso, ejercicios: ejs } });
+    render();
+  };
+  window.gymSumarEjercicio = function () { gymAgregando = true; gymBuscar = ""; gymGrupo = null; render(); };
+  window.gymCerrarAgregar = function () { gymAgregando = false; render(); };
+  window.gymDescanso = function (seg) {
+    const d = gymData();
+    if (!d.enCurso || !d.enCurso.descansoHasta) return;
+    const hasta = seg === 0 ? null : Math.max(Date.now(), d.enCurso.descansoHasta + seg * 1000);
+    guardarGym({ enCurso: { ...d.enCurso, descansoHasta: hasta, descansoTotal: hasta ? Math.max(d.enCurso.descansoTotal || 0, Math.round((hasta - Date.now()) / 1000)) : 0 } });
+    render();
+  };
+  window.gymTerminar = function () {
+    const d = gymData();
+    if (!d.enCurso) return;
+    guardarGym({ enCurso: { ...d.enCurso, fin: Date.now(), descansoHasta: null } });
+    gymReloj = null; gymAgregando = false;
+    render();
+  };
+  window.gymVolver = function () { const d = gymData(); if (d.enCurso) { guardarGym({ enCurso: { ...d.enCurso, fin: null } }); arrancarTimer(); render(); } };
+  window.gymPedirDescartar = function () { gymConfirmarDescartar = true; render(); };
+  window.gymNoDescartar = function () { gymConfirmarDescartar = false; render(); };
+  window.gymDescartar = function () { guardarGym({ enCurso: null }); gymConfirmarDescartar = false; gymAgregando = false; render(); };
+
+  // Lo hecho de verdad: series tildadas con repeticiones.
+  function seriesHechas(e) {
+    return e.series.filter((s) => s.hecha && numGym(s.reps) > 0).map((s) => ({ kg: numGym(s.kg), reps: Math.round(numGym(s.reps)) }));
+  }
+  // Pesas: MET 3,5 / 5 / 6 según cuántas series metés por minuto (menos descanso, más intenso).
+  function resumenGym(en) {
+    const fin = en.fin || Date.now();
+    const min = Math.max(1, Math.round((fin - en.inicio) / 60000));
+    const ejercicios = en.ejercicios.map((e) => ({ nombre: e.nombre, grupo: e.grupo, series: seriesHechas(e) })).filter((e) => e.series.length);
+    const nSeries = ejercicios.reduce((t, e) => t + e.series.length, 0);
+    const vol = ejercicios.reduce((t, e) => t + volumen(e.series), 0);
+    const porMin = nSeries / min;
+    const int = porMin >= 0.45 ? "fuerte" : porMin >= 0.25 ? "media" : "suave";
+    const kcalEst = nSeries ? estimarKcal("Gimnasio", min, int) : 0;
+    const previas = gymData().sesiones;
+    const anteriorMisma = en.rutinaId ? previas.slice().reverse().find((s) => s.rutinaId === en.rutinaId) : null;
+    const volAnt = anteriorMisma ? anteriorMisma.volumen || 0 : 0;
+    const records = [];
+    ejercicios.forEach((e) => {
+      const k = claveEj(e.nombre);
+      let antes = 0;
+      previas.forEach((s) => (s.ejercicios || []).forEach((x) => { if (claveEj(x.nombre) === k) antes = Math.max(antes, mejorPeso(x.series || [])); }));
+      const ahora = mejorPeso(e.series);
+      if (antes > 0 && ahora > antes) {
+        const s = e.series.filter((x) => x.kg === ahora).sort((a, b) => b.reps - a.reps)[0];
+        records.push({ nombre: e.nombre, kg: ahora, reps: s.reps, antes });
+      }
+    });
+    return { min, ejercicios, nSeries, vol, int, kcal: kcalEst, volAnt, records };
+  }
+  window.gymElegirReloj = function (v) { gymReloj = v; render(); };
+  window.gymGuardarSesion = function () {
+    const d = gymData();
+    const en = d.enCurso;
+    if (!en) return;
+    const r = resumenGym(en);
+    if (r.nSeries && !gymReloj) return;
+    const fecha = (() => { const t = new Date(en.inicio); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; })();
+    if (r.nSeries) {
+      const sesion = { id: uid(), fecha, rutinaId: en.rutinaId, nombre: en.nombre, inicio: en.inicio, min: r.min, int: r.int, kcal: r.kcal, volumen: Math.round(r.vol), ejercicios: r.ejercicios };
+      guardarGym({ sesiones: d.sesiones.concat(sesion).slice(-GYM_MAX_SESIONES), enCurso: null });
+      if (r.kcal > 0) sumarEjercicio(fecha, { nombre: `${en.nombre.slice(0, 40)} ${textoMinutos(r.min)}`, act: "Gimnasio", min: r.min, int: r.int, kcal: r.kcal }, gymReloj === "si");
+    } else {
+      guardarGym({ enCurso: null });
+    }
+    gymReloj = null;
+    animarPantalla = true;
+    activeTab = fecha === todayISO() ? "hoy" : "historial";
+    render();
+  };
+
+  // El cronómetro y el descanso se actualizan solos, sin redibujar la pantalla.
+  function arrancarTimer() { if (!gymTimer) gymTimer = setInterval(tickGym, 1000); }
+  function mmss(seg) { seg = Math.max(0, Math.round(seg)); const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = seg % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0"); }
+  function tickGym() {
+    const en = gymData().enCurso;
+    if (!en || en.fin) { clearInterval(gymTimer); gymTimer = null; return; }
+    const ahora = Date.now();
+    const c = document.getElementById("gym-crono");
+    if (c) c.textContent = mmss((ahora - en.inicio) / 1000);
+    const k = document.getElementById("gym-kcal");
+    if (k) k.textContent = `~${kcal(estimarKcal("Gimnasio", Math.max(1, (ahora - en.inicio) / 60000), "media"))} kcal`;
+    if (en.descansoHasta) {
+      const falta = (en.descansoHasta - ahora) / 1000;
+      const t = document.getElementById("gym-desc-t");
+      const b = document.getElementById("gym-desc-b");
+      if (falta <= 0) {
+        guardarGym({ enCurso: { ...en, descansoHasta: null } });
+        try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) { /* sin vibración */ }
+        // Minimizada no se redibuja: podrías estar escribiendo una comida.
+        if (!gymMin) render();
+        return;
+      }
+      if (gymMin) return;
+      if (t) t.textContent = mmss(falta);
+      if (b) b.style.width = `${Math.max(0, Math.min(100, (falta / Math.max(1, en.descansoTotal || 90)) * 100))}%`;
+    }
+  }
+
+  // ---------- pantallas ----------
+  function cargaGimnasio(c) {
+    const d = gymData();
+    let h = "";
+    if (d.enCurso) {
+      h += `<button class="g-rutina" style="box-shadow:inset 0 0 0 2px var(--acento);text-align:left" onclick="closeCapture()"><div class="row" style="justify-content:space-between;width:100%"><b>${esc(d.enCurso.nombre)}</b><span class="xs" style="color:var(--acento);font-weight:800">EN CURSO</span></div><div class="xs dim">Tocá para volver al entrenamiento</div></button>`;
+    }
+    h += `<div class="row" style="justify-content:space-between;align-items:center"><div style="font-size:22px;font-weight:800;letter-spacing:-.3px">Tus rutinas</div><button class="btn-ghost" style="color:var(--acento);font-weight:800;display:flex;align-items:center;gap:4px" onclick="gymNueva()">${icon("plus", "var(--acento)", 16)}Nueva</button></div>`;
+    if (!d.rutinas.length) {
+      h += `<div class="g-rutina"><div class="small dim" style="line-height:1.45">Todavía no armaste ninguna. Creá tu primera rutina con los ejercicios que hacés, o arrancá un entrenamiento libre y sumá ejercicios sobre la marcha.</div><button class="btn-primary" onclick="gymNueva()">Armar mi primera rutina</button></div>`;
+    }
+    const hoyT = Date.now();
+    d.rutinas.forEach((r, i) => {
+      const ult = d.sesiones.slice().reverse().find((s) => s.rutinaId === r.id);
+      const dias = ult ? Math.max(0, Math.round((hoyT - ult.inicio) / 86400000)) : null;
+      const cuando = dias == null ? "sin hacer todavía" : dias === 0 ? "hoy" : dias === 1 ? "ayer" : `hace ${dias} días`;
+      const series = r.ejercicios.reduce((t, e) => t + (e.series || 0), 0);
+      h += `<div class="g-rutina">
+        <div class="row" style="justify-content:space-between;gap:8px"><button style="text-align:left;font-size:18px;font-weight:800;min-width:0" onclick="gymEditar(${i})" aria-label="Editar ${esc(r.nombre)}">${esc(r.nombre)} ${icon("pencil", "var(--textDim)", 14)}</button><span class="xs dim" style="flex-shrink:0">${cuando}</span></div>
+        <div class="xs dim" style="line-height:1.4">${r.ejercicios.map((e) => esc(e.nombre)).join(" · ")}</div>
+        <div class="row" style="justify-content:space-between;align-items:center"><span class="xs dim">${r.ejercicios.length} ejercicio${r.ejercicios.length !== 1 ? "s" : ""} · ${series} series</span><button class="${i === 0 && !d.enCurso ? "btn-primary" : "btn-secondary"}" style="min-height:40px" onclick="gymEmpezar(${i})" ${d.enCurso ? "disabled" : ""}>▶ Empezar</button></div>
+      </div>`;
+    });
+    if (!d.enCurso) h += `<button class="btn-secondary" style="min-height:46px" onclick="gymEmpezar(null)">Entrenamiento libre, sin rutina</button>`;
+    const semana = d.sesiones.filter((s) => hoyT - s.inicio < 7 * 86400000);
+    if (semana.length) {
+      const m = semana.reduce((t, s) => t + (s.min || 0), 0);
+      h += `<div class="xs dim" style="text-align:center">Esta semana: ${semana.length} entrenamiento${semana.length !== 1 ? "s" : ""} · ${textoMinutos(m)} · ~${kcal(semana.reduce((t, s) => t + (s.kcal || 0), 0))} kcal</div>`;
+    }
+    return h;
+  }
+
+  function gymEditorHTML() {
+    const e = gymEdit;
+    let h = `<div class="g-full" role="dialog" aria-label="Rutina"><div class="g-cuerpo">
+      <div class="row" style="justify-content:space-between;align-items:center"><button class="btn-ghost dim" onclick="gymCancelarEdicion()">Cancelar</button><b>${e.id ? "Editar rutina" : "Nueva rutina"}</b><button class="btn-ghost" style="color:var(--acento);font-weight:800" onclick="gymGuardarRutina()">Guardar</button></div>
+      <input id="gym-nombre" type="text" maxlength="50" placeholder="Nombre: Pecho y tríceps, Piernas…" value="${esc(e.nombre)}" oninput="gymEditCampo('nombre', this)" style="font-size:20px;font-weight:800">
+      ${e.error ? `<div class="small" style="color:var(--rojoTexto)">${esc(e.error)}</div>` : ""}
+      <div style="display:flex;flex-direction:column;gap:8px">`;
+    e.ejercicios.forEach((x, i) => {
+      h += `<div class="g-ej">
+        <div class="row" style="justify-content:space-between;gap:8px;align-items:center"><div style="min-width:0"><b>${esc(x.nombre)}</b><div class="xs dim">${esc(x.grupo || "")}</div></div>
+          <div class="row" style="gap:2px;flex-shrink:0"><button class="icon-btn" onclick="gymMover(${i},-1)" aria-label="Subir ${esc(x.nombre)}" ${i === 0 ? "disabled" : ""}>${icon("up", "var(--text)", 18)}</button><button class="icon-btn" onclick="gymMover(${i},1)" aria-label="Bajar ${esc(x.nombre)}" ${i === e.ejercicios.length - 1 ? "disabled" : ""}>${icon("abajo", "var(--text)", 18)}</button><button class="icon-btn" onclick="gymQuitarEj(${i})" aria-label="Quitar ${esc(x.nombre)}">${icon("trash", "var(--textDim)", 18)}</button></div></div>
+        <div class="g-campos"><label>Series<input type="number" inputmode="numeric" min="1" max="10" value="${esc(x.series)}" oninput="gymEditEj(${i},'series',this)"></label><label>Repes<input type="text" maxlength="12" value="${esc(x.reps)}" oninput="gymEditEj(${i},'reps',this)"></label><label>Descanso (s)<input type="number" inputmode="numeric" min="0" max="600" step="15" value="${esc(x.descanso)}" oninput="gymEditEj(${i},'descanso',this)"></label></div>
+      </div>`;
+    });
+    h += `</div>${catalogoBloque("Agregar ejercicio")}
+      ${e.id ? `<button class="btn-secondary" style="color:var(--rojoTexto)" onclick="gymBorrarRutina()">Borrar esta rutina</button>` : ""}
+    </div></div>`;
+    return h;
+  }
+  function catalogoBloque(titulo) {
+    return `<div class="p-tarjeta" style="display:flex;flex-direction:column;gap:10px;background:var(--surface)">
+      <div class="p-titulito">${titulo}</div>
+      <input id="gym-buscar" type="text" placeholder="Buscar: remo, sentadilla, curl…" value="${esc(gymBuscar)}" oninput="gymBuscarEj(this)">
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${GYM_GRUPOS.map((g) => `<button class="p-elegir" style="min-height:34px;padding:0 10px" data-grupo="${g}" aria-pressed="${gymGrupo === g}" onclick="gymElegirGrupo('${g}')">${g}</button>`).join("")}</div>
+      <div id="gym-catalogo" style="display:flex;flex-direction:column;gap:6px">${catalogoHTML()}</div>
+      <div class="xs dim">¿No está? Escribí el nombre y tocá «Crear».</div>
+    </div>`;
+  }
+
+  function gymVivoHTML(en) {
+    const ahora = Date.now();
+    const total = en.ejercicios.reduce((t, e) => t + e.series.length, 0);
+    const hechas = en.ejercicios.reduce((t, e) => t + e.series.filter((s) => s.hecha).length, 0);
+    const actual = en.ejercicios.findIndex((e) => e.series.some((s) => !s.hecha));
+    let h = `<div class="g-full g-vivo" role="dialog" aria-label="Entrenamiento en curso">
+      <div class="g-top">
+        <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+          <button class="icon-btn" style="margin-left:-8px;flex-shrink:0" onclick="gymMinimizar()" aria-label="Minimizar y volver a la app">${icon("abajo", "var(--text)", 22)}</button>
+          <div style="min-width:0;flex:1"><div class="xs dim" style="font-weight:800;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(en.nombre)}</div><div id="gym-crono" class="g-crono">${mmss((ahora - en.inicio) / 1000)}</div></div>
+          <div style="text-align:right;flex-shrink:0"><div id="gym-kcal" class="xs dim">~${kcal(estimarKcal("Gimnasio", Math.max(1, (ahora - en.inicio) / 60000), "media"))} kcal</div><button class="btn-primary" style="min-height:38px;margin-top:4px" onclick="gymTerminar()">Terminar</button></div>
+        </div>
+        <div class="p-barra" style="height:6px;margin-top:10px;color:var(--acento)"><i style="width:${total ? Math.round((hechas / total) * 100) : 0}%"></i></div>
+        <div class="xs dim" style="margin-top:6px">${hechas} de ${total} series${actual >= 0 ? ` · ejercicio ${actual + 1} de ${en.ejercicios.length}` : en.ejercicios.length ? " · todo hecho" : ""}</div>
+      </div>
+      <div class="g-cuerpo" style="padding-bottom:${en.descansoHasta ? 170 : 40}px">`;
+    if (!en.ejercicios.length) h += `<div class="small dim" style="text-align:center;padding:10px 0">Sumá el primer ejercicio para empezar.</div>`;
+    en.ejercicios.forEach((e, ei) => {
+      const ant = gymAnterior(e.nombre);
+      h += `<div class="p-tarjeta g-tarjeta">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(e.nombre)}</div><div class="xs dim">${esc(e.grupo || "")}${e.objetivo ? " · objetivo " + esc(e.objetivo) : ""}${e.descanso ? " · descanso " + mmss(e.descanso) : ""}</div></div><button class="btn-ghost dim xs" style="flex-shrink:0" onclick="verProgresoEj('${ei}')" aria-label="Progreso de ${esc(e.nombre)}">${icon("pulso", "var(--textDim)", 18)}</button></div>
+        <table class="g-series"><tr><th>Serie</th><th>Anterior</th><th>Kg</th><th>Repes</th><th><span class="sr">Hecha</span>${icon("check", "var(--textDim)", 14)}</th></tr>`;
+      e.series.forEach((s, si) => {
+        const a = ant[si];
+        h += `<tr class="${s.hecha ? "hecha" : ""}"><td><span class="g-nro">${si + 1}</span></td><td class="g-ant">${a ? `${fmtKg(a.kg)} × ${a.reps}` : "—"}</td>
+          <td><input class="g-in" type="text" inputmode="decimal" aria-label="Kilos serie ${si + 1} de ${esc(e.nombre)}" value="${esc(s.kg)}" placeholder="kg" oninput="gymSerie(${ei},${si},'kg',this)"></td>
+          <td><input class="g-in" type="text" inputmode="numeric" aria-label="Repeticiones serie ${si + 1} de ${esc(e.nombre)}" value="${esc(s.reps)}" placeholder="reps" oninput="gymSerie(${ei},${si},'reps',this)"></td>
+          <td><button class="g-tilde${s.hecha ? " si" : ""}" onclick="gymTildar(${ei},${si})" aria-pressed="${s.hecha}" aria-label="Serie ${si + 1} de ${esc(e.nombre)} hecha">${s.hecha ? icon("check", "var(--acentoInk)", 18, 3) : ""}</button></td></tr>`;
+      });
+      h += `</table>
+        <div class="row" style="gap:8px"><button class="btn-ghost small" style="flex:1;min-height:40px;font-weight:700;color:var(--acento)" onclick="gymAgregarSerie(${ei})">+ Serie</button><button class="btn-ghost small dim" style="flex:1;min-height:40px;font-weight:700" onclick="gymQuitarSerie(${ei})">${e.series.length > 1 ? "− Serie" : "Quitar ejercicio"}</button></div>
+      </div>`;
+    });
+    h += gymAgregando ? `${catalogoBloque("Sumar un ejercicio")}<button class="btn-secondary" onclick="gymCerrarAgregar()">Listo</button>` : `<button class="btn-secondary" onclick="gymSumarEjercicio()">+ Sumar ejercicio</button>`;
+    h += `<button class="btn-ghost small" style="color:var(--rojoTexto);margin-top:6px" onclick="gymPedirDescartar()">Descartar entrenamiento</button></div>`;
+    if (en.descansoHasta) {
+      const falta = Math.max(0, (en.descansoHasta - ahora) / 1000);
+      const sig = (() => { for (const e of en.ejercicios) { const s = e.series.find((x) => !x.hecha); if (s) return `${esc(e.nombre)} · ${s.kg ? fmtKg(numGym(s.kg)) + " kg × " : ""}${s.reps || "?"}`; } return "terminar"; })();
+      h += `<div class="g-descanso" role="timer" aria-label="Descanso">
+        <div class="row" style="justify-content:space-between;align-items:center"><b class="small">Descanso</b><span id="gym-desc-t" class="g-desc-t">${mmss(falta)}</span></div>
+        <div class="p-barra" style="height:8px;color:var(--falta)"><i id="gym-desc-b" style="width:${Math.min(100, (falta / Math.max(1, en.descansoTotal || 90)) * 100)}%"></i></div>
+        <div class="row" style="justify-content:space-between;align-items:center;gap:8px"><button class="p-redondo" style="background:var(--surfaceRaised);font-weight:800;font-size:13px" onclick="gymDescanso(-15)" aria-label="Quince segundos menos">−15</button><span class="xs dim" style="flex:1;text-align:center;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Sigue: ${sig}</span><button class="p-redondo" style="background:var(--surfaceRaised);font-weight:800;font-size:13px" onclick="gymDescanso(15)" aria-label="Quince segundos más">+15</button><button class="btn-secondary" style="min-height:40px" onclick="gymDescanso(0)">Saltar</button></div>
+      </div>`;
+    }
+    if (gymConfirmarDescartar) {
+      h += `<div class="sheet-backdrop" onclick="gymNoDescartar()"></div><div class="sheet p-hoja" role="dialog" aria-label="Descartar entrenamiento"><div class="grab"></div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px">¿Descartar el entrenamiento?</div><div class="small dim" style="margin-bottom:16px">Se borra lo que cargaste y no suma calorías.</div>
+        <div class="row gap10"><button class="btn-secondary" style="flex:1" onclick="gymNoDescartar()">Seguir entrenando</button><button class="btn-primary" style="flex:1;background:var(--rojo);color:#fff;box-shadow:none" onclick="gymDescartar()">Descartar</button></div></div>`;
+    }
+    return h + `</div>`;
+  }
+
+  function gymResumenHTML(en) {
+    const r = resumenGym(en);
+    const pct = r.volAnt > 0 ? Math.round(((r.vol - r.volAnt) / r.volAnt) * 100) : null;
+    const intTxt = { suave: "suave", media: "media", fuerte: "alta" }[r.int];
+    let h = `<div class="g-full" role="dialog" aria-label="Entrenamiento terminado"><div class="g-cuerpo">
+      <div class="xs" style="font-weight:800;color:var(--acento);letter-spacing:.5px">ENTRENAMIENTO TERMINADO</div>
+      <div style="font-size:28px;font-weight:800;letter-spacing:-.5px">${esc(en.nombre)}</div>`;
+    if (!r.nSeries) {
+      return h + `<div class="small dim" style="line-height:1.45">No tildaste ninguna serie, así que no hay nada para guardar ni calorías para sumar.</div>
+        <button class="btn-secondary" onclick="gymVolver()">Volver al entrenamiento</button><button class="btn-primary" onclick="gymGuardarSesion()">Cerrar sin guardar</button></div></div>`;
+    }
+    h += `<div class="g-stats"><div class="g-stat"><b>${textoMinutos(r.min)}</b><span>Duración</span></div><div class="g-stat"><b>${kcal(r.vol)} kg</b><span>Volumen (kg × repes)</span></div><div class="g-stat"><b>${r.nSeries}</b><span>Series</span></div>
+      <div class="g-stat"><b style="color:${pct == null ? "var(--text)" : pct >= 0 ? "var(--bienTexto)" : "var(--ojoTexto)"}">${pct == null ? r.ejercicios.length : (pct >= 0 ? "+" : "") + pct + " %"}</b><span>${pct == null ? "Ejercicios" : "Volumen vs la vez pasada"}</span></div></div>`;
+    r.records.forEach((x) => { h += `<div class="g-record"><span style="font-size:22px" aria-hidden="true">🏆</span><div><b>Récord en ${esc(x.nombre.toLowerCase())}</b><div class="xs dim">${fmtKg(x.kg)} kg × ${x.reps} · antes ${fmtKg(x.antes)} kg</div></div></div>`; });
+    const bajo = Math.round((r.kcal * 0.8) / 10) * 10, alto = Math.round((r.kcal * 1.2) / 10) * 10;
+    h += `<div class="p-tarjeta" style="display:flex;flex-direction:column;gap:10px;background:var(--surface)">
+        <div class="row" style="justify-content:space-between;align-items:baseline"><span class="p-titulito">Calorías estimadas</span><span style="font-size:24px;font-weight:800">~${kcal(r.kcal)} <span class="small dim">kcal</span></span></div>
+        <div class="xs dim" style="line-height:1.45">Entre ${kcal(bajo)} y ${kcal(alto)}: ${textoMinutos(r.min)} de pesas a intensidad ${intTxt} con tu peso de ${fmtKg(pesoActual())} kg. Es una estimación; si tu reloj lo midió, vale más el suyo.</div>
+        <div class="small" style="font-weight:700">¿Tu reloj ya lo contó en el gasto de hoy?</div>
+        <div class="row" style="gap:8px"><button class="p-elegir" style="flex:1" aria-pressed="${gymReloj === "si"}" onclick="gymElegirReloj('si')">Sí, ya lo contaba</button><button class="p-elegir" style="flex:1" aria-pressed="${gymReloj === "no"}" onclick="gymElegirReloj('no')">No, sumalo</button></div>
+      </div>
+      <button class="btn-primary big-btn" onclick="gymGuardarSesion()" ${gymReloj ? "" : "disabled"}>Guardar entrenamiento</button>
+      <button class="btn-ghost small dim" onclick="gymVolver()">Volver al entrenamiento</button>
+    </div></div>`;
+    return h;
+  }
+
+  // ---------- progreso por ejercicio ----------
+  function historialEj(nombre) {
+    const k = claveEj(nombre);
+    return gymData().sesiones.map((s) => { const e = (s.ejercicios || []).find((x) => claveEj(x.nombre) === k); return e ? { fecha: s.fecha, inicio: s.inicio, series: e.series } : null; }).filter(Boolean);
+  }
+  window.verProgresoEj = function (ref) {
+    const en = gymData().enCurso;
+    const nombre = en && /^\d+$/.test(String(ref)) && en.ejercicios[Number(ref)] ? en.ejercicios[Number(ref)].nombre : ejerciciosHechos()[Number(ref)];
+    if (!nombre) return;
+    gymVerEj = nombre;
+    render();
+  };
+  window.verProgresoLista = function (i) { const n = ejerciciosHechos()[i]; if (n) { gymVerEj = n; render(); } };
+  window.cerrarProgresoEj = function () { gymVerEj = null; render(); };
+  function ejerciciosHechos() {
+    const vistos = new Map();
+    gymData().sesiones.slice().reverse().forEach((s) => (s.ejercicios || []).forEach((e) => { const k = claveEj(e.nombre); if (!vistos.has(k)) vistos.set(k, e.nombre); }));
+    return Array.from(vistos.values());
+  }
+  function gymProgresoHTML() {
+    const d = gymData();
+    if (!d.sesiones.length) return "";
+    const hoyT = Date.now();
+    const semana = d.sesiones.filter((s) => hoyT - s.inicio < 7 * 86400000);
+    const lista = ejerciciosHechos().slice(0, 12);
+    return `<div class="p-tarjeta" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><div style="font-size:18px;font-weight:800">Gimnasio</div><div class="small dim" style="font-weight:600">${semana.length} esta semana · ${d.sesiones.length} en total</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px">${lista.map((n, i) => { const hs = historialEj(n); const ult = hs[hs.length - 1]; const mp = mejorPeso(ult.series); return `<button class="g-cat" onclick="verProgresoLista(${i})"><span style="min-width:0;text-align:left"><b>${esc(n)}</b><span class="xs dim"> · ${hs.length} vez${hs.length !== 1 ? "es" : ""}</span></span><span class="small" style="font-weight:800;flex-shrink:0">${mp ? fmtKg(mp) + " kg" : ult.series.length + " series"} ${icon("chevR", "var(--textDim)", 16)}</span></button>`; }).join("")}</div>
+    </div>`;
+  }
+  function sheetProgresoEj() {
+    const hs = historialEj(gymVerEj);
+    let h = `<div class="sheet-backdrop" onclick="cerrarProgresoEj()"></div><div class="sheet p-hoja" role="dialog" aria-label="Progreso de ${esc(gymVerEj)}"><div class="grab"></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:22px;font-weight:800">${esc(gymVerEj)}</div><button class="icon-btn" onclick="cerrarProgresoEj()" aria-label="Cerrar">${icon("close", "var(--text)", 22)}</button></div>`;
+    if (!hs.length) return h + `<div class="small dim">Todavía no lo hiciste: cuando guardes un entrenamiento con este ejercicio, acá vas a ver cómo progresás.</div></div>`;
+    const puntos = hs.slice(-12).map((x) => ({ fecha: x.fecha, kg: mejorPeso(x.series), rm: unoRM(x.series), vol: volumen(x.series) }));
+    const conPeso = puntos.filter((p) => p.kg > 0);
+    const mejor = hs.reduce((m, x) => Math.max(m, mejorPeso(x.series)), 0);
+    const rm = hs.reduce((m, x) => Math.max(m, unoRM(x.series)), 0);
+    const mvol = hs.reduce((m, x) => Math.max(m, volumen(x.series)), 0);
+    if (conPeso.length >= 2) {
+      const W = 330, H = 150, x0 = 34, y0 = 12, y1 = 128;
+      const min = Math.min(...conPeso.map((p) => p.kg)), max = Math.max(...conPeso.map((p) => p.kg));
+      const lo = Math.floor(min - Math.max(2.5, (max - min) * 0.15)), hi = Math.ceil(max + Math.max(2.5, (max - min) * 0.15));
+      const X = (i) => x0 + (i * (W - x0 - 8)) / Math.max(1, conPeso.length - 1);
+      const Y = (v) => y1 - ((v - lo) / Math.max(1, hi - lo)) * (y1 - y0);
+      const sube = conPeso[conPeso.length - 1].kg - conPeso[0].kg;
+      h += `<div class="row" style="justify-content:space-between;align-items:baseline"><div><span style="font-size:32px;font-weight:800">${fmtKg(conPeso[conPeso.length - 1].kg)}</span> <span class="dim">kg, tu mejor serie la última vez</span></div></div>
+        ${sube !== 0 ? `<div class="xs" style="color:${sube > 0 ? "var(--bienTexto)" : "var(--ojoTexto)"};font-weight:700;margin:4px 0 6px">${sube > 0 ? "+" : ""}${fmtKg(sube)} kg en ${conPeso.length} entrenamientos</div>` : ""}
+        <svg role="img" aria-label="Mejor serie de ${esc(gymVerEj)} en los últimos ${conPeso.length} entrenamientos, de ${fmtKg(conPeso[0].kg)} a ${fmtKg(conPeso[conPeso.length - 1].kg)} kg" width="100%" viewBox="0 0 ${W} ${H}">
+          <g stroke="var(--line)" stroke-width="1">${[lo, (lo + hi) / 2, hi].map((v) => `<line x1="${x0}" x2="${W}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"></line>`).join("")}</g>
+          <g fill="var(--textDim)" font-size="11" font-family="Outfit">${[lo, (lo + hi) / 2, hi].map((v) => `<text x="0" y="${(Y(v) + 4).toFixed(1)}">${fmtKg(v)}</text>`).join("")}
+          <text x="${x0}" y="${H - 2}">${esc(formatDate(conPeso[0].fecha))}</text><text x="${W}" y="${H - 2}" text-anchor="end">${esc(formatDate(conPeso[conPeso.length - 1].fecha))}</text></g>
+          <polyline fill="none" stroke="var(--acento)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${conPeso.map((p, i) => `${X(i).toFixed(1)},${Y(p.kg).toFixed(1)}`).join(" ")}"></polyline>
+          ${conPeso.map((p, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.kg).toFixed(1)}" r="${i === conPeso.length - 1 ? 6 : 4}" fill="${i === conPeso.length - 1 ? "var(--ojo)" : "var(--acento)"}" stroke="var(--surface)" stroke-width="2"><title>${esc(formatDate(p.fecha))}: ${fmtKg(p.kg)} kg</title></circle>`).join("")}
+        </svg>`;
+    } else {
+      h += `<div class="small dim" style="margin-bottom:6px">Con dos entrenamientos o más vas a ver acá el gráfico de tu mejor serie.</div>`;
+    }
+    h += `<div class="g-stats" style="grid-template-columns:repeat(3,minmax(0,1fr));margin:12px 0"><div class="g-stat"><b>${mejor ? fmtKg(mejor) + " kg" : "—"}</b><span>Más pesado</span></div><div class="g-stat"><b>${rm ? fmtKg(Math.round(rm)) + " kg" : "—"}</b><span>1 repe máx. estimada</span></div><div class="g-stat"><b>${kcal(mvol)}</b><span>Mejor volumen</span></div></div>
+      <div class="p-titulito" style="margin-bottom:8px">Últimas veces</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${hs.slice(-6).reverse().map((x) => `<div class="row small" style="justify-content:space-between;gap:12px"><span style="flex-shrink:0">${esc(formatDate(x.fecha))}</span><span class="dim" style="text-align:right">${x.series.map((s) => `${s.kg ? fmtKg(s.kg) + " × " : ""}${s.reps}`).join(" · ")}</span></div>`).join("")}</div>
+    </div>`;
+    return h;
+  }
+
+  // Si al abrir la app había un entrenamiento a medias, el cronómetro sigue.
+  function reanudarGym() { const en = gymData().enCurso; if (en && !en.fin) arrancarTimer(); }
+  // Minimizar: volvés a la app (a cargar una comida, por ejemplo) y una píldora
+  // flotante te devuelve al entrenamiento.
+  let gymMin = false;
+  window.gymMinimizar = function () { gymMin = true; render(); };
+  window.gymMaximizar = function () { gymMin = false; showCapture = false; render(); };
+  function gymPildora(en) {
+    return `<button class="g-pill" onclick="gymMaximizar()" aria-label="Volver al entrenamiento">${icon("pulso", "var(--acentoInk)", 18, 2.4)}<span>${esc(en.nombre.slice(0, 22))}</span><b id="gym-crono">${mmss((Date.now() - en.inicio) / 1000)}</b></button>`;
   }
 
   // ---------- PANTALLA: NUTRIENTES ----------
@@ -3861,6 +4426,7 @@ function todayISO() {
         </div>
       </div>`;
     }
+    h += gymProgresoHTML();
     return h + pieVersion() + `</div>`;
   }
 
@@ -3868,6 +4434,10 @@ function todayISO() {
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
     if (premioActual) { window.cerrarPremio(); return; }
+    if (gymVerEj) { window.cerrarProgresoEj(); return; }
+    if (gymConfirmarDescartar) { window.gymNoDescartar(); return; }
+    if (gymEdit) { window.gymCancelarEdicion(); return; }
+    if (gymAgregando) { window.gymCerrarAgregar(); return; }
     if (confirmarEj) { confirmarEj = null; render(); }
     else if (showCapture) closeCapture();
     else if (comidaAbierta) cerrarComida();
@@ -4018,11 +4588,23 @@ function todayISO() {
     else if (gastoFecha) html += sheetGasto(c);
     else if (editandoInicio) html += sheetEditarInicio();
     if (confirmarEj) html += sheetConfirmarEjercicio();
+    // Gimnasio: el editor y el entrenamiento ocupan toda la pantalla.
+    const enGym = gymData().enCurso;
+    if (gymEdit) html += gymEditorHTML();
+    else if (enGym && enGym.fin) html += gymResumenHTML(enGym);
+    else if (enGym && !gymMin && !showCapture) html += gymVivoHTML(enGym);
+    else if (enGym) html += gymPildora(enGym);
+    if (gymVerEj) html += sheetProgresoEj();
     if (premioActual) html += premioHTML(c, premioActual);
 
     const root = document.getElementById("root");
+    // Redibujar no te tiene que mandar arriba de todo en medio del entrenamiento.
+    const gfAntes = document.querySelector(".g-full");
+    const scrollGym = gfAntes ? gfAntes.scrollTop : 0;
     root.classList.toggle("anim", animarPantalla);
     root.innerHTML = html;
+    const gf = document.querySelector(".g-full");
+    if (gf && scrollGym) gf.scrollTop = scrollGym;
     ajustarNumeros();
     animarPantalla = false;
     if (editandoInicio && !showCapture && !comidaAbierta && !showIdeas && !gastoFecha) activarArrastre();

@@ -10,6 +10,17 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v22 (app de déficit)
+
+**Gimnasio**, en el + al lado de Comida y Ejercicio:
+
+- **Tus rutinas.** Armás rutinas con ejercicios de un catálogo (o creás los tuyos), series × repes y descanso, y las ordenás con flechas. Cada una dice cuándo la hiciste por última vez.
+- **Entrenando.** Cronómetro, kilos y repes por serie con lo de la vez pasada al lado (y precargado), y un descanso con cuenta regresiva que arranca solo al tildar la serie (con vibración al terminar, donde el celu la soporta). Podés minimizarlo para usar la app y volver con la píldora verde; si recargás o el celu se duerme, el entrenamiento sigue.
+- **Al terminar.** Duración, volumen, series, récords nuevos y calorías estimadas (pesas, MET 3,5 a 6 según cuántas series metiste por minuto, con tu peso). Se suman al gasto del día, salvo que tu reloj ya las haya contado.
+- **Progreso.** En la pestaña Progreso, cada ejercicio con el gráfico de tu mejor serie, la repetición máxima estimada, el mejor volumen y las últimas veces.
+
+Se guarda en `goal.gym`, así viaja con la nube y con la copia de seguridad.
+
 ## Novedades de la v21 (app de déficit)
 
 Tres cambios para que la lectura de calorías sea más precisa:
