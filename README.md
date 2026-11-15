@@ -10,6 +10,14 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v21 (app de déficit)
+
+Tres cambios para que la lectura de calorías sea más precisa:
+
+- **La IA pregunta cuando duda.** Si algo que no se ve en la foto cambia mucho el número (frito o al horno, cuánto aceite o aderezo, el plato entero o la mitad), el resultado trae hasta dos preguntas con botones. Las contestás y tocás "Recalcular con esto", o la guardás así.
+- **Gramos opcionales.** Si pesaste la comida, poné los gramos y la IA usa ese peso. Sin balanza, hay un tip para la foto: un tenedor o la mano al lado del plato, sacada un poco de costado.
+- **Aprende de tus correcciones.** Si corregís las kcal de una comida que analizó la IA, queda anotado (lo que dijo ella y lo que pusiste vos) y viaja como referencia en los próximos análisis. Se ven y se borran en Ajustes, en "Lo que la IA aprendió de vos". Cambiar la porción (½, 2) no cuenta como corrección.
+
 ## Novedades de la v20 (app de déficit)
 
 - **Tu meta, a la vista.** "Tu meta" aparece en Hoy de entrada: kilos bajados, cuánto te falta y el ritmo de los últimos 7 días cerrados. Dice si llegás a tiempo para tu fecha, o cuántos kilos tenés que bajar por semana para llegar.
