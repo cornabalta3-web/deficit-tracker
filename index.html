@@ -364,7 +364,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v22-html · gimnasio: rutinas, entrenamiento en vivo y progreso";
+  const APP_VERSION = "v23-html · tu rutina full body de 3 días, precargada";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -678,6 +678,7 @@ function todayISO() {
       applyTheme();
       prepararPremio();
       reanudarGym();
+      precargarRutinas();
       render();
       // Quien ya usaba la app antes de la v17 sube su copia la primera vez.
       if (goal.onboarded) {
@@ -3674,6 +3675,206 @@ function todayISO() {
   const GYM_GRUPOS = ["Pecho", "Espalda", "Piernas", "Glúteos", "Hombros", "Bíceps", "Tríceps", "Core"];
   const GYM_MAX_SESIONES = 400;
 
+  // v23: tu rutina "Full body 3 días — definición", precargada una sola vez.
+  // Las reglas generales: dejá 1–2 repes en reserva; cuando completás todas
+  // las series en el tope del rango, subí el peso un escalón.
+  const GYM_PROGRAMA = "Full body 3 días — definición";
+  const GYM_PRECARGA = [
+    {
+      "nombre": "Día A — sentadilla + empuje",
+      "nota": "Dejá 48 h antes del fútbol. No hagas la carrera de intensidad al día siguiente.",
+      "ejercicios": [
+        {
+          "nombre": "Sentadilla goblet o hack squat",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "6–8",
+          "descanso": 120
+        },
+        {
+          "nombre": "Press inclinado con mancuernas",
+          "grupo": "Pecho",
+          "series": 3,
+          "reps": "8–10",
+          "descanso": 105
+        },
+        {
+          "nombre": "Remo con mancuerna a un brazo",
+          "grupo": "Espalda",
+          "series": 3,
+          "reps": "10 por lado",
+          "descanso": 0,
+          "nota": "Superserie A1: pasá directo a las elevaciones laterales."
+        },
+        {
+          "nombre": "Elevaciones laterales",
+          "grupo": "Hombros",
+          "series": 3,
+          "reps": "12–15",
+          "descanso": 75,
+          "nota": "Superserie A2: después de esta, descansá y volvé al remo."
+        },
+        {
+          "nombre": "Sentadilla búlgara",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "8 por pierna",
+          "descanso": 90,
+          "nota": "Empezá con la pierna izquierda y hacé las mismas repes con la derecha."
+        },
+        {
+          "nombre": "Gemelos de pie",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "12–15",
+          "descanso": 60
+        },
+        {
+          "nombre": "Plancha",
+          "grupo": "Core",
+          "series": 3,
+          "reps": "40 s",
+          "descanso": 60,
+          "nota": "Las repes son segundos."
+        }
+      ]
+    },
+    {
+      "nombre": "Día B — cadera + tirón",
+      "nota": "",
+      "ejercicios": [
+        {
+          "nombre": "Hip thrust o puente con barra",
+          "grupo": "Glúteos",
+          "series": 3,
+          "reps": "8–10",
+          "descanso": 105,
+          "nota": "Isquio izquierdo: liviano y sin dolor, solo si el traumatólogo te habilitó. Si molesta, sacalo hoy."
+        },
+        {
+          "nombre": "Jalón al pecho o dominadas asistidas",
+          "grupo": "Espalda",
+          "series": 3,
+          "reps": "8–10",
+          "descanso": 105
+        },
+        {
+          "nombre": "Flexiones con pausa abajo",
+          "grupo": "Pecho",
+          "series": 3,
+          "reps": "al fallo −2",
+          "descanso": 75,
+          "nota": "Pará 2 repes antes del fallo."
+        },
+        {
+          "nombre": "Remo sentado en polea",
+          "grupo": "Espalda",
+          "series": 3,
+          "reps": "10–12",
+          "descanso": 75
+        },
+        {
+          "nombre": "Curl femoral sentado",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "12–15",
+          "descanso": 60,
+          "nota": "Liviano y progresivo, 2 o 3 series. Isquio izquierdo: liviano y sin dolor, solo si el traumatólogo te habilitó. Si molesta, sacalo hoy."
+        },
+        {
+          "nombre": "Face pull",
+          "grupo": "Hombros",
+          "series": 3,
+          "reps": "15",
+          "descanso": 60
+        },
+        {
+          "nombre": "Pallof press",
+          "grupo": "Core",
+          "series": 3,
+          "reps": "10 por lado",
+          "descanso": 60
+        }
+      ]
+    },
+    {
+      "nombre": "Día C — unilateral + mixto",
+      "nota": "Dejá 48 h antes del fútbol. Si cae cerca del partido, bajá a 2 series en los de pierna.",
+      "ejercicios": [
+        {
+          "nombre": "Prensa de piernas",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "10–12",
+          "descanso": 105
+        },
+        {
+          "nombre": "Cruces en polea",
+          "grupo": "Pecho",
+          "series": 3,
+          "reps": "12–15",
+          "descanso": 60
+        },
+        {
+          "nombre": "Remo en máquina o T-bar",
+          "grupo": "Espalda",
+          "series": 3,
+          "reps": "8–10",
+          "descanso": 105
+        },
+        {
+          "nombre": "Estocadas inversas o step-up",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "8 por pierna",
+          "descanso": 90,
+          "nota": "Empezá con la pierna izquierda y hacé las mismas repes con la derecha."
+        },
+        {
+          "nombre": "Press militar con mancuernas sentado",
+          "grupo": "Hombros",
+          "series": 3,
+          "reps": "8–10",
+          "descanso": 90
+        },
+        {
+          "nombre": "Plancha Copenhague",
+          "grupo": "Core",
+          "series": 3,
+          "reps": "20 s por lado",
+          "descanso": 60,
+          "nota": "Aductores. Las repes son segundos por lado."
+        },
+        {
+          "nombre": "Gemelos sentado",
+          "grupo": "Piernas",
+          "series": 3,
+          "reps": "15",
+          "descanso": 60
+        }
+      ]
+    }
+  ];
+  function precargarRutinas() {
+    if (!goal.onboarded) return;
+    const g = goal.gym || {};
+    if (g.precarga === "fullbody-3d") return;
+    const d = gymData();
+    const nuevas = GYM_PRECARGA.map((r) => ({ id: uid(), programa: GYM_PROGRAMA, nombre: r.nombre, nota: r.nota, ejercicios: r.ejercicios.map((x) => ({ ...x })) }));
+    goal = { ...goal, gym: { ...d, rutinas: nuevas.concat(d.rutinas), precarga: "fullbody-3d" } };
+    persistGoal();
+  }
+  // En un programa de varios días, el que sigue al último que hiciste.
+  function rutinaQueToca() {
+    const d = gymData();
+    const prog = d.rutinas.filter((r) => r.programa);
+    if (prog.length < 2) return null;
+    const ult = d.sesiones.slice().reverse().find((s) => prog.some((r) => r.id === s.rutinaId));
+    if (!ult) return prog[0].id;
+    const i = prog.findIndex((r) => r.id === ult.rutinaId);
+    return prog[(i + 1) % prog.length].id;
+  }
+
   let gymEdit = null;      // {id, nombre, ejercicios: [{nombre, grupo, series, reps, descanso}]}
   let gymBuscar = "";
   let gymGrupo = null;
@@ -3692,7 +3893,7 @@ function todayISO() {
     };
   }
   function guardarGym(cambios) {
-    goal = { ...goal, gym: { ...gymData(), ...cambios } };
+    goal = { ...goal, gym: { ...gymData(), precarga: (goal.gym || {}).precarga, ...cambios } };
     persistGoal();
   }
   const numGym = (v) => { const n = Number(String(v == null ? "" : v).replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
@@ -3718,7 +3919,7 @@ function todayISO() {
   window.gymEditar = function (i) {
     const r = gymData().rutinas[i];
     if (!r) return;
-    gymEdit = { id: r.id, nombre: r.nombre, ejercicios: r.ejercicios.map((e) => ({ ...e })) };
+    gymEdit = { id: r.id, nombre: r.nombre, programa: r.programa, nota: r.nota, ejercicios: r.ejercicios.map((e) => ({ ...e })) };
     gymBuscar = ""; gymGrupo = null; showCapture = false;
     render();
   };
@@ -3726,7 +3927,7 @@ function todayISO() {
   window.gymEditEj = function (i, campo, el) {
     if (!gymEdit || !gymEdit.ejercicios[i]) return;
     const ejs = gymEdit.ejercicios.slice();
-    ejs[i] = { ...ejs[i], [campo]: campo === "reps" ? el.value.slice(0, 12) : Math.round(numGym(el.value)) };
+    ejs[i] = { ...ejs[i], [campo]: campo === "reps" ? el.value.slice(0, 16) : Math.round(numGym(el.value)) };
     gymEdit = { ...gymEdit, ejercicios: ejs };
   };
   window.gymMover = function (i, d) {
@@ -3786,9 +3987,9 @@ function todayISO() {
     if (!gymEdit) return;
     const nombre = String(gymEdit.nombre || "").trim().slice(0, 50) || "Mi rutina";
     if (!gymEdit.ejercicios.length) { gymEdit = { ...gymEdit, error: "Sumá al menos un ejercicio." }; render(); return; }
-    const ejercicios = gymEdit.ejercicios.map((e) => ({ nombre: e.nombre, grupo: e.grupo || "Otro", series: Math.max(1, Math.min(10, Math.round(numGym(e.series)) || 3)), reps: String(e.reps || "10").slice(0, 12), descanso: Math.max(0, Math.min(600, Math.round(numGym(e.descanso)))) }));
+    const ejercicios = gymEdit.ejercicios.map((e) => ({ nombre: e.nombre, grupo: e.grupo || "Otro", series: Math.max(1, Math.min(10, Math.round(numGym(e.series)) || 3)), reps: String(e.reps || "10").slice(0, 16), descanso: Math.max(0, Math.min(600, Math.round(numGym(e.descanso)))), ...(e.nota ? { nota: String(e.nota).slice(0, 200) } : {}) }));
     const d = gymData();
-    const r = { id: gymEdit.id || uid(), nombre, ejercicios };
+    const r = { id: gymEdit.id || uid(), nombre, ejercicios, ...(gymEdit.programa ? { programa: gymEdit.programa } : {}), ...(gymEdit.nota ? { nota: gymEdit.nota } : {}) };
     const rutinas = gymEdit.id ? d.rutinas.map((x) => (x.id === r.id ? r : x)) : d.rutinas.concat(r);
     guardarGym({ rutinas });
     gymEdit = null;
@@ -3814,7 +4015,7 @@ function todayISO() {
         const a = ant[k] || ant[ant.length - 1];
         return { kg: a ? a.kg : "", reps: a ? a.reps : repsObj, hecha: false };
       });
-      return { nombre: e.nombre, grupo: e.grupo, descanso: e.descanso, objetivo: `${n} × ${e.reps}`, series };
+      return { nombre: e.nombre, grupo: e.grupo, descanso: e.descanso, objetivo: `${n} × ${e.reps}`, nota: e.nota || "", series };
     }) : [];
     guardarGym({ enCurso: { rutinaId: r ? r.id : null, nombre: r ? r.nombre : "Entrenamiento libre", inicio: Date.now(), fin: null, descansoHasta: null, descansoTotal: 0, ejercicios } });
     showCapture = false; gymReloj = null; gymAgregando = !r;
@@ -3972,14 +4173,17 @@ function todayISO() {
     d.rutinas.forEach((r, i) => {
       const ult = d.sesiones.slice().reverse().find((s) => s.rutinaId === r.id);
       const dias = ult ? Math.max(0, Math.round((hoyT - ult.inicio) / 86400000)) : null;
-      const cuando = dias == null ? "sin hacer todavía" : dias === 0 ? "hoy" : dias === 1 ? "ayer" : `hace ${dias} días`;
+      const toca = r.id === rutinaQueToca();
+      const cuando = (toca ? "te toca · " : "") + (dias == null ? "sin hacer todavía" : dias === 0 ? "hoy" : dias === 1 ? "ayer" : `hace ${dias} días`);
       const series = r.ejercicios.reduce((t, e) => t + (e.series || 0), 0);
       h += `<div class="g-rutina">
-        <div class="row" style="justify-content:space-between;gap:8px"><button style="text-align:left;font-size:18px;font-weight:800;min-width:0" onclick="gymEditar(${i})" aria-label="Editar ${esc(r.nombre)}">${esc(r.nombre)} ${icon("pencil", "var(--textDim)", 14)}</button><span class="xs dim" style="flex-shrink:0">${cuando}</span></div>
+        <div style="display:flex;flex-direction:column;gap:2px"><button style="text-align:left;font-size:18px;font-weight:800" onclick="gymEditar(${i})" aria-label="Editar ${esc(r.nombre)}">${esc(r.nombre)} ${icon("pencil", "var(--textDim)", 14)}</button><span class="xs" style="${toca ? "color:var(--acento);font-weight:800" : "color:var(--textDim)"}">${cuando}</span></div>
         <div class="xs dim" style="line-height:1.4">${r.ejercicios.map((e) => esc(e.nombre)).join(" · ")}</div>
-        <div class="row" style="justify-content:space-between;align-items:center"><span class="xs dim">${r.ejercicios.length} ejercicio${r.ejercicios.length !== 1 ? "s" : ""} · ${series} series</span><button class="${i === 0 && !d.enCurso ? "btn-primary" : "btn-secondary"}" style="min-height:40px" onclick="gymEmpezar(${i})" ${d.enCurso ? "disabled" : ""}>▶ Empezar</button></div>
+        ${r.nota ? `<div class="xs" style="line-height:1.4;color:var(--ojoTexto)">${esc(r.nota)}</div>` : ""}
+        <div class="row" style="justify-content:space-between;align-items:center"><span class="xs dim">${r.ejercicios.length} ejercicio${r.ejercicios.length !== 1 ? "s" : ""} · ${series} series</span><button class="${(rutinaQueToca() ? toca : i === 0) && !d.enCurso ? "btn-primary" : "btn-secondary"}" style="min-height:40px" onclick="gymEmpezar(${i})" ${d.enCurso ? "disabled" : ""}>▶ Empezar</button></div>
       </div>`;
     });
+    if (d.rutinas.some((r) => r.programa === GYM_PROGRAMA)) h += `<div class="xs dim" style="line-height:1.45">Dejá 1–2 repes en reserva. Cuando completás todas las series en el tope del rango, subí el peso un escalón.</div>`;
     if (!d.enCurso) h += `<button class="btn-secondary" style="min-height:46px" onclick="gymEmpezar(null)">Entrenamiento libre, sin rutina</button>`;
     const semana = d.sesiones.filter((s) => hoyT - s.inicio < 7 * 86400000);
     if (semana.length) {
@@ -4000,7 +4204,7 @@ function todayISO() {
       h += `<div class="g-ej">
         <div class="row" style="justify-content:space-between;gap:8px;align-items:center"><div style="min-width:0"><b>${esc(x.nombre)}</b><div class="xs dim">${esc(x.grupo || "")}</div></div>
           <div class="row" style="gap:2px;flex-shrink:0"><button class="icon-btn" onclick="gymMover(${i},-1)" aria-label="Subir ${esc(x.nombre)}" ${i === 0 ? "disabled" : ""}>${icon("up", "var(--text)", 18)}</button><button class="icon-btn" onclick="gymMover(${i},1)" aria-label="Bajar ${esc(x.nombre)}" ${i === e.ejercicios.length - 1 ? "disabled" : ""}>${icon("abajo", "var(--text)", 18)}</button><button class="icon-btn" onclick="gymQuitarEj(${i})" aria-label="Quitar ${esc(x.nombre)}">${icon("trash", "var(--textDim)", 18)}</button></div></div>
-        <div class="g-campos"><label>Series<input type="number" inputmode="numeric" min="1" max="10" value="${esc(x.series)}" oninput="gymEditEj(${i},'series',this)"></label><label>Repes<input type="text" maxlength="12" value="${esc(x.reps)}" oninput="gymEditEj(${i},'reps',this)"></label><label>Descanso (s)<input type="number" inputmode="numeric" min="0" max="600" step="15" value="${esc(x.descanso)}" oninput="gymEditEj(${i},'descanso',this)"></label></div>
+        <div class="g-campos"><label>Series<input type="number" inputmode="numeric" min="1" max="10" value="${esc(x.series)}" oninput="gymEditEj(${i},'series',this)"></label><label>Repes<input type="text" maxlength="16" value="${esc(x.reps)}" oninput="gymEditEj(${i},'reps',this)"></label><label>Descanso (s)<input type="number" inputmode="numeric" min="0" max="600" step="15" value="${esc(x.descanso)}" oninput="gymEditEj(${i},'descanso',this)"></label></div>
       </div>`;
     });
     h += `</div>${catalogoBloque("Agregar ejercicio")}
@@ -4038,7 +4242,7 @@ function todayISO() {
     en.ejercicios.forEach((e, ei) => {
       const ant = gymAnterior(e.nombre);
       h += `<div class="p-tarjeta g-tarjeta">
-        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(e.nombre)}</div><div class="xs dim">${esc(e.grupo || "")}${e.objetivo ? " · objetivo " + esc(e.objetivo) : ""}${e.descanso ? " · descanso " + mmss(e.descanso) : ""}</div></div><button class="btn-ghost dim xs" style="flex-shrink:0" onclick="verProgresoEj('${ei}')" aria-label="Progreso de ${esc(e.nombre)}">${icon("pulso", "var(--textDim)", 18)}</button></div>
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(e.nombre)}</div><div class="xs dim">${esc(e.grupo || "")}${e.objetivo ? " · objetivo " + esc(e.objetivo) : ""}${e.descanso ? " · descanso " + mmss(e.descanso) : ""}</div>${e.nota ? `<div class="xs" style="color:var(--ojoTexto);line-height:1.4;margin-top:4px">${esc(e.nota)}</div>` : ""}</div><button class="btn-ghost dim xs" style="flex-shrink:0" onclick="verProgresoEj('${ei}')" aria-label="Progreso de ${esc(e.nombre)}">${icon("pulso", "var(--textDim)", 18)}</button></div>
         <table class="g-series"><tr><th>Serie</th><th>Anterior</th><th>Kg</th><th>Repes</th><th><span class="sr">Hecha</span>${icon("check", "var(--textDim)", 14)}</th></tr>`;
       e.series.forEach((s, si) => {
         const a = ant[si];

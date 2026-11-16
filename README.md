@@ -10,6 +10,13 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v23 (app de déficit)
+
+- **Tu rutina, precargada.** "Full body 3 días — definición" aparece sola en Gimnasio la primera vez que abrís la app: Día A (sentadilla + empuje), Día B (cadera + tirón) y Día C (unilateral + mixto), con sus series × repes y descansos (90–120 s en los grandes, 60 s en los accesorios).
+- **Notas en cada ejercicio:** la superserie A1/A2 (el remo no descansa, pasás directo a las elevaciones), empezar con la pierna izquierda en los unilaterales, y el cuidado del isquio izquierdo en hip thrust y curl femoral. Los días A y C recuerdan dejar 48 h antes del fútbol.
+- **Te toca:** marca el día que sigue según el último que hiciste (A → B → C → A).
+- Se precarga una sola vez: si borrás algún día, no vuelve. Lo podés editar como cualquier rutina.
+
 ## Novedades de la v22 (app de déficit)
 
 **Gimnasio**, en el + al lado de Comida y Ejercicio:
