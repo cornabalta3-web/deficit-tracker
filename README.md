@@ -10,6 +10,11 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v24 (app de déficit)
+
+- **Te dice cuándo subir el peso.** Con la regla de tu rutina: si la vez pasada hiciste todas las series en el tope del rango (por ejemplo 3 × 10 en un 8–10), el entrenamiento arranca con el peso siguiente y las repes al piso del rango, y te lo marca en verde ("⬆ Subí a 24 kg"). Si no llegaste, te dice que mantengas el peso hasta completarlo. Mancuernas suben de a 2 kg; barra, máquina y polea, de a 2,5. Los ejercicios por tiempo, al fallo o sin peso no llevan indicación.
+- **Cuánto subiste.** En Progreso, cada ejercicio muestra cuántos kilos subiste desde la primera vez, y desde Gimnasio hay un atajo para verlo.
+
 ## Novedades de la v23 (app de déficit)
 
 - **Tu rutina, precargada.** "Full body 3 días — definición" aparece sola en Gimnasio la primera vez que abrís la app: Día A (sentadilla + empuje), Día B (cadera + tirón) y Día C (unilateral + mixto), con sus series × repes y descansos (90–120 s en los grandes, 60 s en los accesorios).
