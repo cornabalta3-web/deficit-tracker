@@ -364,7 +364,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v23-html · tu rutina full body de 3 días, precargada";
+  const APP_VERSION = "v24-html · gimnasio: te dice cuándo subir el peso";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -4005,17 +4005,51 @@ function todayISO() {
   function abrirGimnasio() { showCapture = true; capturaTab = "gimnasio"; render(); }
 
   // ---------- entrenamiento en curso ----------
+  // ---------- progresión de peso ----------
+  //
+  // La regla de tu rutina: cuando completás todas las series en el tope del
+  // rango, subí el peso un escalón. Si la vez pasada lo lograste, el
+  // entrenamiento arranca con el peso nuevo (y las repes al piso del rango);
+  // si no, con el mismo peso. Los ejercicios por tiempo ("40 s") o al fallo no
+  // tienen tope, y los que hacés sin peso tampoco.
+  function rangoReps(reps) {
+    const t = String(reps || "");
+    if (/\d\s*s\b|seg|fallo/i.test(t)) return null;
+    const ns = (t.match(/\d+/g) || []).map(Number).filter((n) => n > 0 && n < 100);
+    return ns.length ? { piso: Math.min(...ns), tope: Math.max(...ns) } : null;
+  }
+  // Mancuernas suben de a 2 kg (cada una); barra, máquina y polea, de a 2,5.
+  function pasoKg(nombre) { return /mancuerna/i.test(nombre) ? 2 : 2.5; }
+  function sugerirProgresion(nombre, reps, nSeries) {
+    const rango = rangoReps(reps);
+    const ant = gymAnterior(nombre);
+    if (!rango || !ant.length) return null;
+    const kg = Math.max(...ant.map((x) => x.kg || 0));
+    if (!(kg > 0)) return null;
+    const todas = ant.length >= nSeries && ant.every((x) => (x.reps || 0) >= rango.tope && (x.kg || 0) >= kg);
+    if (todas) return { tipo: "subir", kg: Math.round((kg + pasoKg(nombre)) * 10) / 10, antes: kg, piso: rango.piso, tope: rango.tope };
+    return { tipo: "mantener", kg, tope: rango.tope, series: nSeries };
+  }
+  function textoProgresion(p) {
+    if (!p) return "";
+    return p.tipo === "subir"
+      ? `⬆ Subí a ${fmtKg(p.kg)} kg: la vez pasada hiciste todas las series en el tope (${fmtKg(p.antes)} kg × ${p.tope}).`
+      : `Mantené ${fmtKg(p.kg)} kg hasta hacer las ${p.series} series en ${p.tope} repes; ahí subís.`;
+  }
+
   window.gymEmpezar = function (i) {
     const r = i == null ? null : gymData().rutinas[i];
     const ejercicios = r ? r.ejercicios.map((e) => {
       const ant = gymAnterior(e.nombre);
       const n = Math.max(1, e.series || 3);
       const repsObj = parseInt(e.reps, 10) || "";
+      const prog = sugerirProgresion(e.nombre, e.reps, n);
       const series = Array.from({ length: n }, (_, k) => {
         const a = ant[k] || ant[ant.length - 1];
+        if (prog && prog.tipo === "subir") return { kg: prog.kg, reps: prog.piso, hecha: false };
         return { kg: a ? a.kg : "", reps: a ? a.reps : repsObj, hecha: false };
       });
-      return { nombre: e.nombre, grupo: e.grupo, descanso: e.descanso, objetivo: `${n} × ${e.reps}`, nota: e.nota || "", series };
+      return { nombre: e.nombre, grupo: e.grupo, descanso: e.descanso, objetivo: `${n} × ${e.reps}`, nota: e.nota || "", progresion: prog, series };
     }) : [];
     guardarGym({ enCurso: { rutinaId: r ? r.id : null, nombre: r ? r.nombre : "Entrenamiento libre", inicio: Date.now(), fin: null, descansoHasta: null, descansoTotal: 0, ejercicios } });
     showCapture = false; gymReloj = null; gymAgregando = !r;
@@ -4183,6 +4217,7 @@ function todayISO() {
         <div class="row" style="justify-content:space-between;align-items:center"><span class="xs dim">${r.ejercicios.length} ejercicio${r.ejercicios.length !== 1 ? "s" : ""} · ${series} series</span><button class="${(rutinaQueToca() ? toca : i === 0) && !d.enCurso ? "btn-primary" : "btn-secondary"}" style="min-height:40px" onclick="gymEmpezar(${i})" ${d.enCurso ? "disabled" : ""}>▶ Empezar</button></div>
       </div>`;
     });
+    if (d.sesiones.length) h += `<button class="btn-ghost small" style="color:var(--acento);font-weight:800;text-align:left" onclick="closeCapture();setTab('progreso')">Ver cómo vienen subiendo tus pesos ›</button>`;
     if (d.rutinas.some((r) => r.programa === GYM_PROGRAMA)) h += `<div class="xs dim" style="line-height:1.45">Dejá 1–2 repes en reserva. Cuando completás todas las series en el tope del rango, subí el peso un escalón.</div>`;
     if (!d.enCurso) h += `<button class="btn-secondary" style="min-height:46px" onclick="gymEmpezar(null)">Entrenamiento libre, sin rutina</button>`;
     const semana = d.sesiones.filter((s) => hoyT - s.inicio < 7 * 86400000);
@@ -4242,7 +4277,7 @@ function todayISO() {
     en.ejercicios.forEach((e, ei) => {
       const ant = gymAnterior(e.nombre);
       h += `<div class="p-tarjeta g-tarjeta">
-        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(e.nombre)}</div><div class="xs dim">${esc(e.grupo || "")}${e.objetivo ? " · objetivo " + esc(e.objetivo) : ""}${e.descanso ? " · descanso " + mmss(e.descanso) : ""}</div>${e.nota ? `<div class="xs" style="color:var(--ojoTexto);line-height:1.4;margin-top:4px">${esc(e.nota)}</div>` : ""}</div><button class="btn-ghost dim xs" style="flex-shrink:0" onclick="verProgresoEj('${ei}')" aria-label="Progreso de ${esc(e.nombre)}">${icon("pulso", "var(--textDim)", 18)}</button></div>
+        <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><div style="min-width:0"><div style="font-size:18px;font-weight:800">${esc(e.nombre)}</div><div class="xs dim">${esc(e.grupo || "")}${e.objetivo ? " · objetivo " + esc(e.objetivo) : ""}${e.descanso ? " · descanso " + mmss(e.descanso) : ""}</div>${e.progresion ? `<div class="xs" style="line-height:1.4;margin-top:4px;font-weight:700;color:${e.progresion.tipo === "subir" ? "var(--bienTexto)" : "var(--textDim)"}">${textoProgresion(e.progresion)}</div>` : ""}${e.nota ? `<div class="xs" style="color:var(--ojoTexto);line-height:1.4;margin-top:4px">${esc(e.nota)}</div>` : ""}</div><button class="btn-ghost dim xs" style="flex-shrink:0" onclick="verProgresoEj('${ei}')" aria-label="Progreso de ${esc(e.nombre)}">${icon("pulso", "var(--textDim)", 18)}</button></div>
         <table class="g-series"><tr><th>Serie</th><th>Anterior</th><th>Kg</th><th>Repes</th><th><span class="sr">Hecha</span>${icon("check", "var(--textDim)", 14)}</th></tr>`;
       e.series.forEach((s, si) => {
         const a = ant[si];
@@ -4328,7 +4363,7 @@ function todayISO() {
     const lista = ejerciciosHechos().slice(0, 12);
     return `<div class="p-tarjeta" style="display:flex;flex-direction:column;gap:10px">
       <div class="row" style="justify-content:space-between;align-items:baseline"><div style="font-size:18px;font-weight:800">Gimnasio</div><div class="small dim" style="font-weight:600">${semana.length} esta semana · ${d.sesiones.length} en total</div></div>
-      <div style="display:flex;flex-direction:column;gap:6px">${lista.map((n, i) => { const hs = historialEj(n); const ult = hs[hs.length - 1]; const mp = mejorPeso(ult.series); return `<button class="g-cat" onclick="verProgresoLista(${i})"><span style="min-width:0;text-align:left"><b>${esc(n)}</b><span class="xs dim"> · ${hs.length} vez${hs.length !== 1 ? "es" : ""}</span></span><span class="small" style="font-weight:800;flex-shrink:0">${mp ? fmtKg(mp) + " kg" : ult.series.length + " series"} ${icon("chevR", "var(--textDim)", 16)}</span></button>`; }).join("")}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">${lista.map((n, i) => { const hs = historialEj(n); const ult = hs[hs.length - 1]; const mp = mejorPeso(ult.series); const p0 = mejorPeso(hs[0].series); const sube = hs.length > 1 && p0 > 0 && mp > 0 ? mp - p0 : 0; return `<button class="g-cat" onclick="verProgresoLista(${i})"><span style="min-width:0;text-align:left"><b>${esc(n)}</b><span class="xs dim"> · ${hs.length} vez${hs.length !== 1 ? "es" : ""}</span></span><span class="small" style="font-weight:800;flex-shrink:0">${sube ? `<span style="color:${sube > 0 ? "var(--bienTexto)" : "var(--ojoTexto)"};margin-right:6px">${sube > 0 ? "+" : ""}${fmtKg(sube)}</span>` : ""}${mp ? fmtKg(mp) + " kg" : ult.series.length + " series"} ${icon("chevR", "var(--textDim)", 16)}</span></button>`; }).join("")}</div>
     </div>`;
   }
   function sheetProgresoEj() {
