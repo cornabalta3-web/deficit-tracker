@@ -364,7 +364,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v24-html · gimnasio: te dice cuándo subir el peso";
+  const APP_VERSION = "v25-html · cargar un día vacío desde Día por día";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -4581,7 +4581,9 @@ function todayISO() {
     if (semanaSel != null && s.dias[semanaSel]) {
       const x = s.dias[semanaSel];
       const nombre = x.esHoy ? "Hoy" : formatDate(x.fecha);
-      if (!x.d) detalle = `<div class="small"><b>${esc(nombre)}:</b> sin comidas cargadas.</div>`;
+      // Un día vacío no puede quedar en un aviso sin salida: se carga desde acá.
+      if (!x.d) detalle = `<div class="small"><b>${esc(nombre)}:</b> ${x.esHoy ? "todavía no cargaste nada." : "no cargaste nada ese día."}</div>
+        <button class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px" onclick="openCapture('${x.fecha}')">${icon("plus", "var(--acentoInk)", 18, 2.6)}${x.esHoy ? "Cargar ahora" : "Cargar ese día"}</button>`;
       else {
         const info = gastoInfo(x.fecha);
         const partes = [];
@@ -4592,7 +4594,8 @@ function todayISO() {
         const balance = x.gasto - x.consumido;
         detalle = `<div class="row" style="justify-content:space-between;align-items:baseline"><b style="font-size:15px">${esc(nombre)}</b><span style="font-size:13px;font-weight:700;color:${palabra[1]}">${palabra[0]}</span></div>
           <div style="font-size:14px;line-height:1.45">Comiste ${kcal(x.consumido)} de ${kcal(x.limite)}. Gastaste ${kcal(x.gasto)}${partes.length ? `: tu base y ${partes.join(", ")}` : ", solo tu base"}. ${balance >= 0 ? `Déficit de ${kcal(balance)}.` : `Superávit de ${kcal(-balance)}.`}</div>
-          <button class="p-subrayado" style="display:flex;align-items:center;gap:6px;text-decoration:none;font-weight:700" onclick="abrirGasto('${x.fecha}')">${icon("llama", "var(--acento)", 16, 2.2)}Corregir el gasto de ese día${icon("chevR", "var(--text)", 14)}</button>`;
+          <button class="p-subrayado" style="display:flex;align-items:center;gap:6px;text-decoration:none;font-weight:700" onclick="abrirGasto('${x.fecha}')">${icon("llama", "var(--acento)", 16, 2.2)}Corregir el gasto de ese día${icon("chevR", "var(--text)", 14)}</button>
+          <button class="p-subrayado" style="display:flex;align-items:center;gap:6px;text-decoration:none;font-weight:700" onclick="openCapture('${x.fecha}')">${icon("plus", "var(--acento)", 16, 2.4)}${x.esHoy ? "Sumar algo a hoy" : "Sumar algo a ese día"}${icon("chevR", "var(--text)", 14)}</button>`;
       }
     }
     h += `<div class="p-tarjeta" style="display:flex;flex-direction:column;gap:10px">
