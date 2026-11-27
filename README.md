@@ -10,6 +10,10 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v26 (app de déficit)
+
+- **Historial muestra los días que no cargaste.** Aparecen en gris, en su lugar de la lista, con un botón "Cargar" que abre la carga con esa fecha. Van los del último mes, desde tu primer registro.
+
 ## Novedades de la v25 (app de déficit)
 
 - **Días vacíos con salida.** En Progreso → Día por día, al tocar un día sin nada cargado ahora aparece "Cargar ese día" (o "Cargar ahora" si es hoy), que abre la carga con esa fecha. En los días con datos, "Sumar algo a ese día".
