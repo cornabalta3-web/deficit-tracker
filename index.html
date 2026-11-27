@@ -364,7 +364,7 @@
 
   const N = window.Nutrientes;
   const KCAL_PER_KG = 7700;
-  const APP_VERSION = "v25-html · cargar un día vacío desde Día por día";
+  const APP_VERSION = "v26-html · Historial muestra los días que no cargaste";
   const DEFAULT_GOAL = { currentWeight: null, goalWeight: null, goalDate: "", maintenance: 2200, height: null, age: null, gender: "male", onboarded: false, surplusAlertThreshold: 300, theme: "dark", tema: "auto", inicio: null, ejercicios: [], proteinTarget: null, dieta: "equilibrada", comidas: ["Desayuno", "Almuerzo", "Merienda", "Cena"] };
 
   let meals = [];
@@ -2125,13 +2125,32 @@ function todayISO() {
   function screenHistorial(c) {
     let h = `<div class="p-pantalla">
       <div class="p-cabeza"><div class="p-titulo">Historial</div><span class="small dim" style="font-weight:600">${c.dayStats.length} día${c.dayStats.length !== 1 ? "s" : ""}</span></div>
-      <div class="xs dim" style="margin-top:-6px;line-height:1.45">¿Te faltó un día entero? Tocá + y cambiá la fecha antes de guardar.</div>`;
+      <div class="xs dim" style="margin-top:-6px;line-height:1.45">Los días que no cargaste aparecen en gris: tocá Cargar para completarlos.</div>`;
     if (c.dayStats.length === 0) {
       h += `<div class="p-tarjeta" style="text-align:center;padding:32px 20px"><div class="small dim">Todavía no registraste ninguna comida.</div></div>`;
       return h + `</div>`;
     }
     const meta = metaDiaria(c);
-    c.dayStats.forEach((day) => {
+    // Los días sin nada cargado también van, en gris y con Cargar: antes no
+    // aparecían, y desde Historial no había forma de completarlos. Solo del
+    // último mes y desde tu primer registro, para no llenar la lista.
+    const conDatos = new Set(c.dayStats.map((d) => d.date));
+    const primera = c.dayStats.reduce((m, d) => (d.date < m ? d.date : m), c.todayStr);
+    const tope = addDaysISO(c.todayStr, -30);
+    const desde = primera > tope ? primera : tope;
+    const huecos = [];
+    for (let fch = c.todayStr; fch >= desde; fch = addDaysISO(fch, -1)) if (!conDatos.has(fch)) huecos.push({ date: fch, vacio: true });
+    const filas = c.dayStats.concat(huecos).sort((a, b) => b.date.localeCompare(a.date));
+    filas.forEach((day) => {
+      if (day.vacio) {
+        const hoy = day.date === c.todayStr;
+        h += `<div class="p-tarjeta" style="padding:12px 14px;display:flex;align-items:center;gap:12px">
+          <span style="width:40px;height:40px;flex-shrink:0"><svg aria-hidden="true" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="var(--track)" stroke-width="6" stroke-dasharray="4 4"></circle></svg></span>
+          <span style="flex:1;min-width:0"><span style="display:block;font-size:15px;font-weight:800">${hoy ? "Hoy" : formatDate(day.date)}</span><span class="xs dim">${hoy ? "Todavía no cargaste nada" : "No cargaste nada"}</span></span>
+          <button class="mini-btn" style="flex-shrink:0;color:var(--acento);border-color:var(--acento);font-weight:800" onclick="openCapture('${day.date}')" aria-label="Cargar ${hoy ? "hoy" : esc(formatDate(day.date))}">${icon("plus", "var(--acento)", 14, 2.6)} Cargar</button>
+        </div>`;
+        return;
+      }
       const bal = balanceDe(day.net, day.cheat);
       const abierto = !!expandedDays[day.date];
       const limite = Math.max(0, day.gasto - meta);
