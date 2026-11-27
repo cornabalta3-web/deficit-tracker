@@ -10,6 +10,10 @@
 - `netlify.toml` — configuración de Netlify.
 - `manifest.json` + `icons/` — para que al agregarla a la pantalla de inicio tenga ícono y nombre propios.
 
+## Novedades de la v25 (app de déficit)
+
+- **Días vacíos con salida.** En Progreso → Día por día, al tocar un día sin nada cargado ahora aparece "Cargar ese día" (o "Cargar ahora" si es hoy), que abre la carga con esa fecha. En los días con datos, "Sumar algo a ese día".
+
 ## Novedades de la v24 (app de déficit)
 
 - **Te dice cuándo subir el peso.** Con la regla de tu rutina: si la vez pasada hiciste todas las series en el tope del rango (por ejemplo 3 × 10 en un 8–10), el entrenamiento arranca con el peso siguiente y las repes al piso del rango, y te lo marca en verde ("⬆ Subí a 24 kg"). Si no llegaste, te dice que mantengas el peso hasta completarlo. Mancuernas suben de a 2 kg; barra, máquina y polea, de a 2,5. Los ejercicios por tiempo, al fallo o sin peso no llevan indicación.
